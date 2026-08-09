@@ -70,10 +70,14 @@ export function CodeEditor({ value, error, onChange }: CodeEditorProps) {
         EditorView.theme({
           "&": { height: "100%", fontSize: "16px" },
           ".cm-scroller": { fontFamily: '"Pretendard Variable", Pretendard, monospace' },
-          ".cm-content": { padding: "14px 0", caretColor: "#2563eb" },
+          ".cm-content": { padding: "14px 0", caretColor: "var(--accent)" },
           ".cm-line": { padding: "0 14px 0 8px", lineHeight: "1.75" },
-          ".cm-gutters": { backgroundColor: "#f8fafc", borderRight: "1px solid #e2e8f0" },
-          ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "#eff6ff" },
+          ".cm-gutters": {
+            color: "var(--text-muted)",
+            backgroundColor: "var(--surface-muted)",
+            borderRight: "1px solid var(--border-soft)",
+          },
+          ".cm-activeLine, .cm-activeLineGutter": { backgroundColor: "var(--accent-soft)" },
           ".cm-focused": { outline: "none" },
         }),
       ],

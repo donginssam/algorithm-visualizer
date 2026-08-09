@@ -8,6 +8,14 @@ describe("의사코드 파서와 생성기", () => {
     expect(parsePseudocode(astToText(program))).toEqual(program)
   })
 
+  // 처음 화면에 올라오는 상태입니다.
+  it("본문이 비어 있는 프로그램은 시작과 끝 두 줄이 된다", () => {
+    const empty = { body: [] }
+
+    expect(astToText(empty)).toBe("시작\n끝")
+    expect(parsePseudocode(astToText(empty))).toEqual(empty)
+  })
+
   it("키보드용 연산 기호를 교과서 기호로 바꾼다", () => {
     expect(
       parsePseudocode(`시작

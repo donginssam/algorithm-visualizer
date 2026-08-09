@@ -35,8 +35,42 @@ function NextHandle() {
   return <Handle id="next" type="source" position={Position.Bottom} className="large-handle source-handle" />
 }
 
-function Shape({ className, children }: { className: string; children: ReactNode }) {
-  return <div className={`flow-shape ${className}`}>{children}</div>
+/**
+ * 비스듬한 변이 있는 기호의 윤곽선.
+ *
+ * CSS `clip-path`로 자르면 테두리까지 함께 잘려서 평행사변형의 좌우 변, 마름모의
+ * 네 변에 선이 남지 않는다. 도형을 SVG로 그리면 네 변 모두 테두리가 생기고,
+ * PNG로 저장할 때 만드는 도형(core/flowToSvg.ts)과도 모양이 정확히 같아진다.
+ */
+const SHAPE_OUTLINES = {
+  io: "14,0 100,0 86,100 0,100",
+  decision: "50,0 100,50 50,100 0,50",
+} as const
+
+function Shape({
+  className,
+  outline,
+  children,
+}: {
+  className: string
+  outline?: string
+  children: ReactNode
+}) {
+  return (
+    <div className={`flow-shape ${className}`}>
+      {outline && (
+        <svg
+          className="shape-outline"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          <polygon points={outline} vectorEffect="non-scaling-stroke" />
+        </svg>
+      )}
+      {children}
+    </div>
+  )
 }
 
 export function TerminalNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>) {
@@ -56,7 +90,7 @@ export function IoNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>) {
     <div className="node-frame">
       <ActionToolbar id={id} selected={selected} />
       <TargetHandle />
-      <Shape className="io-shape"><span>{data.label}</span></Shape>
+      <Shape className="io-shape" outline={SHAPE_OUTLINES.io}><span>{data.label}</span></Shape>
       <NextHandle />
     </div>
   )
@@ -82,7 +116,9 @@ export function DecisionNode({ id, data, selected }: NodeProps<AlgorithmFlowNode
     <div className="node-frame decision-frame">
       <ActionToolbar id={id} selected={selected} />
       <TargetHandle />
-      <Shape className="decision-shape"><span>{data.label}</span></Shape>
+      <Shape className="decision-shape" outline={SHAPE_OUTLINES.decision}>
+        <span>{data.label}</span>
+      </Shape>
       <span className="handle-caption" style={{ left: yesPosition }}>예</span>
       <Handle
         id="yes"

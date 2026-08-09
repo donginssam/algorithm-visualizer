@@ -9,7 +9,8 @@ import type {
   FlowNodeData,
 } from "./flowTypes"
 
-const NODE_SIZES: Record<FlowNodeData["kind"], { width: number; height: number }> = {
+/** 도형 크기. src/index.css의 .flow-shape 계열 규칙과 반드시 같아야 합니다. */
+export const NODE_SIZES: Record<FlowNodeData["kind"], { width: number; height: number }> = {
   terminal: { width: 172, height: 64 },
   input: { width: 190, height: 76 },
   output: { width: 190, height: 76 },

@@ -48,6 +48,15 @@ describe("AST와 순서도 그래프 변환", () => {
     expect(graph.edges.some(edge => edge.type === "loop-back")).toBe(true)
   })
 
+  // 처음 화면에 올라오는 상태입니다.
+  it("본문이 비어 있어도 시작과 끝을 이어 놓는다", () => {
+    const graph = astToFlow({ body: [] })
+
+    expect(graph.nodes.map(node => node.data.label)).toEqual(["시작", "끝"])
+    expect(graph.edges).toHaveLength(1)
+    expect(flowToAst(graph.nodes, graph.edges)).toEqual({ body: [] })
+  })
+
   it("내용이 비어 있는 반복과 예 흐름을 허용하지 않는다", () => {
     const emptyLoop = astToFlow({ body: [{ type: "loop", condition: "계속", body: [] }] })
     const emptyThen = astToFlow({

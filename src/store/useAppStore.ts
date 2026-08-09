@@ -2,9 +2,16 @@ import { create } from "zustand"
 import type { Program } from "../core/ast"
 import { astToText } from "../core/astToText"
 import { parsePseudocode, PseudocodeParseError } from "../core/parser"
-import { sumOfSquares } from "../examples"
 
 export type ProgramSource = "example" | "text" | "flow"
+
+/**
+ * 처음 화면에 올라오는 프로그램.
+ *
+ * 예제를 미리 띄우지 않고 비워 둔다. 본문이 비어 있어도 "시작"과 "끝"은 항상
+ * 있으므로(문법 규칙) 학생은 그 사이에 기호를 넣기만 하면 된다.
+ */
+const EMPTY_PROGRAM: Program = { body: [] }
 
 interface AppState {
   program: Program
@@ -21,8 +28,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>(set => ({
-  program: sumOfSquares.program,
-  code: astToText(sumOfSquares.program),
+  program: EMPTY_PROGRAM,
+  code: astToText(EMPTY_PROGRAM),
   parseError: null,
   graphMessage: null,
   revision: 0,

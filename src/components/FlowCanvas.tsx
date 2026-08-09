@@ -7,6 +7,7 @@ import {
   addEdge,
   applyEdgeChanges,
   applyNodeChanges,
+  getViewportForBounds,
   useReactFlow,
   type Connection,
   type EdgeChange,
@@ -26,6 +27,7 @@ import {
 import type { Program } from "../core/ast"
 import { astToFlow } from "../core/astToFlow"
 import { flowToAst, FlowValidationError } from "../core/flowToAst"
+import { flowToSvg, graphBounds } from "../core/flowToSvg"
 import type {
   AlgorithmFlowEdge,
   AlgorithmFlowNode,
@@ -59,8 +61,19 @@ const edgeTypes: EdgeTypes = {
   "loop-back": FlowEdge,
 }
 
+const MIN_ZOOM = 0.25
+const MAX_ZOOM = 1.8
+/**
+ * 화면을 맞출 때는 원래 크기보다 크게 키우지 않습니다. 기호가 두어 개뿐일 때
+ * 화면 가득 확대돼 버리는 것을 막습니다(손으로 하는 확대는 MAX_ZOOM까지 가능).
+ */
+const FIT_MAX_ZOOM = 1
+/** 화면을 맞출 때 순서도 둘레에 남기는 여백 비율. */
+const FIT_PADDING = 0.24
+
 export interface FlowCanvasHandle {
   addNodeAtScreen: (kind: PaletteItemKind, clientX: number, clientY: number) => boolean
+  exportPng: () => Promise<void>
 }
 
 interface FlowCanvasProps {
@@ -85,6 +98,16 @@ interface EditingState {
 }
 
 let userNodeSequence = 0
+
+/** PNG 파일명에 붙일 `YYYYMMDD-HHmm` 시각 문자열. */
+function exportStamp(): string {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, "0")
+  return (
+    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
+    `-${pad(now.getHours())}${pad(now.getMinutes())}`
+  )
+}
 
 function userNode(
   kind: PaletteItemKind,
@@ -143,7 +166,11 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   const containerRef = useRef<HTMLDivElement>(null)
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
-  const { screenToFlowPosition, fitView } = useReactFlow<AlgorithmFlowNode, AlgorithmFlowEdge>()
+  const needsFitRef = useRef(true)
+  const { screenToFlowPosition, getViewport, setViewport } =
+    useReactFlow<AlgorithmFlowNode, AlgorithmFlowEdge>()
+  // 캔버스의 실제 크기. 탭 전환으로 감춰져 있는 동안에는 0입니다.
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
 
   const replaceNodes = (next: AlgorithmFlowNode[]) => {
     nodesRef.current = next
@@ -174,7 +201,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     const graph = astToFlow(program)
     replaceNodes(graph.nodes)
     replaceEdges(graph.edges)
-    window.requestAnimationFrame(() => fitView({ padding: 0.24, duration: 280 }))
+    // 새 기호의 크기가 측정된 뒤에 맞춰야 하므로 아래 효과에 넘깁니다.
+    needsFitRef.current = true
     // revision이 바뀔 때 최신 AST를 다시 배치합니다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision, source])
@@ -211,7 +239,106 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     [onGraphMutation, screenToFlowPosition, syncGraph],
   )
 
-  useImperativeHandle(ref, () => ({ addNodeAtScreen: addAtScreen }), [addAtScreen])
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    const observer = new ResizeObserver(entries => {
+      const box = entries[0]?.contentRect
+      if (!box) return
+      const next = { width: Math.round(box.width), height: Math.round(box.height) }
+      setCanvasSize(previous => {
+        // 예제 화면에 가려져 있는 동안에는 크기가 0이 됩니다. 다시 보이게 되면
+        // 그 상태로 굳지 않도록 화면을 맞추라고 표시해 둡니다.
+        if (previous.width === 0 && next.width > 0) needsFitRef.current = true
+        return next
+      })
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  /*
+   * 화면 맞추기는 여기 한 곳에서만 합니다.
+   *
+   * fitView는 React Flow가 각 기호를 DOM에서 다시 잰 뒤라야 올바른 값을 내는데,
+   * 예제를 빠르게 연달아 바꾸면 아직 옛 크기가 남아 있어 순서도가 지나치게
+   * 확대된 채로 굳습니다. 우리는 배치 좌표를 이미 알고 있으므로 측정에 기대지
+   * 않고 직접 계산해서 맞춥니다.
+   */
+  useEffect(() => {
+    if (!needsFitRef.current) return
+    if (canvasSize.width === 0 || canvasSize.height === 0) return
+    const bounds = graphBounds(nodesRef.current, edgesRef.current)
+    if (!bounds) return
+
+    const view = getViewportForBounds(
+      bounds,
+      canvasSize.width,
+      canvasSize.height,
+      MIN_ZOOM,
+      FIT_MAX_ZOOM,
+      FIT_PADDING,
+    )
+
+    // 캔버스가 막 보이기 시작한 순간에는 React Flow의 확대·축소 장치가 아직
+    // 준비되지 않아 화면 이동 요청이 조용히 무시됩니다. 반영될 때까지
+    // 프레임마다 다시 시도합니다(최대 약 0.6초).
+    let cancelled = false
+    let frame = 0
+    let attempts = 0
+    const apply = () => {
+      if (cancelled) return
+      attempts += 1
+      setViewport(view)
+      if (Math.abs(getViewport().zoom - view.zoom) < 0.0001 || attempts >= 40) {
+        needsFitRef.current = false
+        return
+      }
+      frame = window.requestAnimationFrame(apply)
+    }
+    apply()
+
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(frame)
+    }
+  }, [canvasSize, revision, getViewport, setViewport])
+
+  const exportPng = useCallback(async () => {
+    const { markup, width, height } = flowToSvg(nodesRef.current, edgesRef.current)
+
+    // 화면 배율과 무관하게 항상 2배 해상도로 저장합니다(과제 제출용).
+    const scale = 2
+    const image = new Image()
+    image.width = width
+    image.height = height
+    const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
+
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve()
+      image.onerror = () => reject(new Error("순서도를 이미지로 바꾸지 못했어요."))
+      image.src = svgUrl
+    })
+
+    const canvas = document.createElement("canvas")
+    canvas.width = width * scale
+    canvas.height = height * scale
+    const context = canvas.getContext("2d")
+    if (!context) throw new Error("이미지를 만들 수 없는 브라우저예요.")
+    context.scale(scale, scale)
+    context.drawImage(image, 0, 0, width, height)
+
+    const link = document.createElement("a")
+    link.download = `순서도-${exportStamp()}.png`
+    link.href = canvas.toDataURL("image/png")
+    link.click()
+  }, [])
+
+  useImperativeHandle(
+    ref,
+    () => ({ addNodeAtScreen: addAtScreen, exportPng }),
+    [addAtScreen, exportPng],
+  )
 
   const handleNodesChange = (changes: NodeChange<AlgorithmFlowNode>[]) => {
     const next = applyNodeChanges(changes, nodesRef.current)
@@ -407,10 +534,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
                 : 1
               return incomingCount < maximumIncoming
             }}
-            minZoom={0.25}
-            maxZoom={1.8}
-            fitView
-            fitViewOptions={{ padding: 0.24 }}
+            minZoom={MIN_ZOOM}
+            maxZoom={MAX_ZOOM}
             panOnDrag
             zoomOnPinch
             zoomOnDoubleClick={false}
