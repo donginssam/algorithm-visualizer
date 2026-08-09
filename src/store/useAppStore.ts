@@ -15,6 +15,7 @@ interface AppState {
   source: ProgramSource
   updateCodeDraft: (code: string) => void
   commitCode: (code: string) => void
+  beginFlowEdit: () => void
   setProgram: (program: Program, source: ProgramSource) => void
   setGraphMessage: (message: string | null) => void
 }
@@ -48,6 +49,13 @@ export const useAppStore = create<AppState>(set => ({
       set({ code, parseError })
     }
   },
+
+  beginFlowEdit: () =>
+    set(state => ({
+      code: astToText(state.program),
+      parseError: null,
+      source: "flow",
+    })),
 
   setProgram: (program, source) =>
     set(state => ({

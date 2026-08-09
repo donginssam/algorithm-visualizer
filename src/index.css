@@ -38,6 +38,17 @@ button {
   color: inherit;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+  white-space: nowrap;
+}
+
 .app-shell {
   width: min(1680px, 100%);
   min-height: 100vh;
@@ -198,6 +209,40 @@ h2 {
   background: #fff;
 }
 
+.graph-code-message {
+  display: flex;
+  min-height: 430px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  padding: 32px;
+  border: 1px solid #fecdd3;
+  border-radius: 14px;
+  color: #9f1239;
+  background: #fff1f2;
+  text-align: center;
+}
+
+.graph-code-message strong {
+  font-size: 19px;
+}
+
+.graph-code-message span {
+  max-width: 420px;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.graph-code-message small {
+  max-width: 420px;
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .symbol-toolbar {
   display: flex;
   align-items: center;
@@ -343,20 +388,20 @@ h2 {
 }
 
 .large-handle {
-  width: 28px !important;
-  height: 28px !important;
+  width: 44px !important;
+  height: 44px !important;
   border: 0 !important;
   background: radial-gradient(circle, #2563eb 0 5px, #fff 6px 7px, transparent 8px) !important;
   z-index: 5;
 }
 
 .target-handle {
-  top: -14px !important;
+  top: -22px !important;
 }
 
 .source-handle,
 .decision-handle {
-  bottom: -14px !important;
+  bottom: -22px !important;
 }
 
 .handle-caption {
@@ -369,15 +414,12 @@ h2 {
   background: rgb(255 255 255 / 90%);
   font-size: 11px;
   font-weight: 800;
+  transform: translateX(-50%);
   pointer-events: none;
 }
 
-.handle-caption.yes {
-  left: 19%;
-}
-
-.handle-caption.no {
-  right: 10%;
+.react-flow__node:not(.selected) .handle-caption {
+  display: none;
 }
 
 .junction-frame {
@@ -395,7 +437,7 @@ h2 {
 
 .node-toolbar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 5px;
   padding: 5px;
   border: 1px solid #cbd5e1;
@@ -421,6 +463,26 @@ h2 {
   background: #fee2e2;
 }
 
+.edge-toolbar {
+  padding: 5px;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgb(15 23 42 / 15%);
+}
+
+.edge-toolbar button {
+  min-width: 88px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 7px;
+  color: #b42318;
+  background: #fee2e2;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .react-flow__edge-text {
   font-size: 13px;
   font-weight: 800;
@@ -435,6 +497,11 @@ h2 {
 .loop-back-edge path {
   stroke: #7c3aed;
   stroke-width: 2px;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #2563eb;
+  stroke-width: 3px;
 }
 
 .react-flow__controls {
@@ -570,6 +637,26 @@ h2 {
   font-weight: 800;
   text-align: center;
   pointer-events: none;
+}
+
+.drag-preview.terminal {
+  border-radius: 999px;
+  background: rgb(255 224 102 / 92%);
+}
+
+.drag-preview.io {
+  background: rgb(255 179 198 / 92%);
+  clip-path: polygon(12% 0, 100% 0, 88% 100%, 0 100%);
+}
+
+.drag-preview.process {
+  border-radius: 5px;
+  background: rgb(168 216 255 / 92%);
+}
+
+.drag-preview.decision {
+  background: rgb(183 228 199 / 92%);
+  clip-path: polygon(12% 0, 88% 0, 100% 50%, 88% 100%, 12% 100%, 0 50%);
 }
 
 .modal-backdrop {

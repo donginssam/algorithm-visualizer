@@ -53,6 +53,14 @@ function statementFromNode(node: AlgorithmFlowNode): Statement {
  * 분기는 합류점에서 다시 만나야 하고, 반복의 '예' 경로만 판단 기호로 되돌아갈 수 있습니다.
  */
 export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]): Program {
+  const nodeIds = new Set<string>()
+  for (const node of nodes) {
+    if (nodeIds.has(node.id)) {
+      throw new FlowValidationError("같은 기호가 두 번 등록되어 있어요. 기호를 지운 뒤 다시 추가해 주세요.")
+    }
+    nodeIds.add(node.id)
+  }
+
   const nodesById = new Map(nodes.map(node => [node.id, node]))
   const starts = nodes.filter(node => node.data.kind === "terminal" && node.data.terminalRole === "start")
   const ends = nodes.filter(node => node.data.kind === "terminal" && node.data.terminalRole === "end")
@@ -68,10 +76,15 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
   }
 
   const outgoing = new Map<string, AlgorithmFlowEdge[]>()
+  const incoming = new Map<string, AlgorithmFlowEdge[]>()
   for (const edge of edges) {
-    const list = outgoing.get(edge.source) ?? []
-    list.push(edge)
-    outgoing.set(edge.source, list)
+    const sourceEdges = outgoing.get(edge.source) ?? []
+    sourceEdges.push(edge)
+    outgoing.set(edge.source, sourceEdges)
+
+    const targetEdges = incoming.get(edge.target) ?? []
+    targetEdges.push(edge)
+    incoming.set(edge.target, targetEdges)
   }
 
   const startEdges = outgoing.get(starts[0].id) ?? []
@@ -80,6 +93,12 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
   }
   if ((outgoing.get(ends[0].id) ?? []).length > 0) {
     throw new FlowValidationError("끝 기호에서는 화살표가 나갈 수 없어요.")
+  }
+  if ((incoming.get(starts[0].id) ?? []).length > 0) {
+    throw new FlowValidationError("시작 기호로 들어오는 화살표는 지워 주세요.")
+  }
+  if ((incoming.get(ends[0].id) ?? []).length !== 1) {
+    throw new FlowValidationError("끝 기호의 연결이 끊겨 있어요. 들어오는 화살표가 하나 필요해요.")
   }
 
   const reachable = new Set<string>()
@@ -148,6 +167,9 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
           if (loopPath.stopId !== node.id) {
             throw new FlowValidationError(`'${condition}' 반복의 '예' 흐름이 판단 기호로 돌아오지 않아요.`)
           }
+          if (loopPath.body.length === 0) {
+            throw new FlowValidationError(`'${condition}' 반복 안에 실행할 기호를 하나 이상 연결해 주세요.`)
+          }
           body.push({ type: "loop", condition, body: loopPath.body })
           currentId = branches.no.target
           continue
@@ -162,6 +184,12 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
         if (!junction || junction.data.kind !== "junction") {
           throw new FlowValidationError(`'${condition}'의 두 흐름 뒤에 합류점이 필요해요.`)
         }
+        if (thenPath.body.length === 0) {
+          throw new FlowValidationError(`'${condition}'의 '예' 흐름에 실행할 기호를 하나 이상 연결해 주세요.`)
+        }
+        if ((incoming.get(junction.id) ?? []).length !== 2) {
+          throw new FlowValidationError(`'${condition}'의 합류점에는 화살표 두 개가 들어와야 해요.`)
+        }
         if (consumed.has(junction.id)) {
           throw new FlowValidationError("한 합류점을 여러 판단에서 함께 사용할 수 없어요.")
         }
@@ -171,6 +199,10 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
         continue
       }
 
+      const nextEdges = outgoing.get(node.id) ?? []
+      if (nextEdges.some(edge => branchOf(edge) === "yes" || branchOf(edge) === "no")) {
+        throw new FlowValidationError(`'${node.data.label}'의 '예/아니오' 화살표는 판단 기호에서만 사용할 수 있어요.`)
+      }
       body.push(statementFromNode(node))
       currentId = requireSingleNext(node).target
     }

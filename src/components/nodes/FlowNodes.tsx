@@ -14,7 +14,7 @@ function ActionToolbar({ id, selected, canEdit = true }: { id: string; selected:
   if (!actions) return null
 
   return (
-    <NodeToolbar isVisible={selected} position={Position.Right} offset={12} className="node-toolbar">
+    <NodeToolbar isVisible={selected} position={Position.Top} offset={14} className="node-toolbar">
       {canEdit && (
         <button type="button" className="nodrag nowheel" onClick={() => actions.edit(id)}>
           편집
@@ -43,7 +43,7 @@ export function TerminalNode({ id, data, selected }: NodeProps<AlgorithmFlowNode
   const isStart = data.terminalRole === "start"
   return (
     <div className="node-frame">
-      <ActionToolbar id={id} selected={selected} canEdit={false} />
+      <ActionToolbar id={id} selected={selected} />
       {!isStart && <TargetHandle />}
       <Shape className="terminal-shape"><span>{data.label}</span></Shape>
       {isStart && <NextHandle />}
@@ -74,26 +74,30 @@ export function ProcessNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>
 }
 
 export function DecisionNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>) {
+  const isLoop = data.controlKind === "loop"
+  const yesPosition = isLoop ? "66%" : "34%"
+  const noPosition = isLoop ? "34%" : "66%"
+
   return (
     <div className="node-frame decision-frame">
       <ActionToolbar id={id} selected={selected} />
       <TargetHandle />
       <Shape className="decision-shape"><span>{data.label}</span></Shape>
-      <span className="handle-caption yes">예</span>
+      <span className="handle-caption" style={{ left: yesPosition }}>예</span>
       <Handle
         id="yes"
         type="source"
         position={Position.Bottom}
         className="large-handle decision-handle yes-handle"
-        style={{ left: "34%" }}
+        style={{ left: yesPosition }}
       />
-      <span className="handle-caption no">아니오</span>
+      <span className="handle-caption" style={{ left: noPosition }}>아니오</span>
       <Handle
         id="no"
         type="source"
         position={Position.Bottom}
         className="large-handle decision-handle no-handle"
-        style={{ left: "66%" }}
+        style={{ left: noPosition }}
       />
     </div>
   )

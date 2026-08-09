@@ -29,7 +29,7 @@ function sourceLines(source: string): SourceLine[] {
     .replace(/\r\n/g, "\n")
     .split("\n")
     .map((raw, index) => {
-      if (/^\t+/.test(raw)) {
+      if (/^\s*\t/.test(raw)) {
         throw new PseudocodeParseError(index + 1, "탭 대신 공백 2칸으로 들여써 주세요.")
       }
 

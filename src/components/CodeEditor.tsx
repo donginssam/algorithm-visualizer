@@ -53,12 +53,14 @@ export function CodeEditor({ value, error, onChange }: CodeEditorProps) {
           const normalized = normalizeSymbols(raw)
 
           if (normalized !== raw) {
-            const cursor = update.state.selection.main.head
-            const removedCharacters = raw.length - normalized.length
+            const selection = update.state.selection.main
             updatingRef.current = true
             update.view.dispatch({
               changes: { from: 0, to: raw.length, insert: normalized },
-              selection: { anchor: Math.max(0, cursor - removedCharacters) },
+              selection: {
+                anchor: normalizeSymbols(raw.slice(0, selection.anchor)).length,
+                head: normalizeSymbols(raw.slice(0, selection.head)).length,
+              },
             })
             updatingRef.current = false
           }

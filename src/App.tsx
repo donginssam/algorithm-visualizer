@@ -16,6 +16,7 @@ export default function App() {
     source,
     updateCodeDraft,
     commitCode,
+    beginFlowEdit,
     setProgram,
     setGraphMessage,
   } = useAppStore()
@@ -29,9 +30,13 @@ export default function App() {
   }, [])
 
   const handleCodeChange = useCallback((nextCode: string) => {
+    setSelectedExampleId("")
     updateCodeDraft(nextCode)
     if (debounceRef.current !== null) window.clearTimeout(debounceRef.current)
-    debounceRef.current = window.setTimeout(() => commitCode(nextCode), 300)
+    debounceRef.current = window.setTimeout(() => {
+      debounceRef.current = null
+      commitCode(nextCode)
+    }, 300)
   }, [commitCode, updateCodeDraft])
 
   const handleProgramChange = useCallback(
@@ -39,10 +44,20 @@ export default function App() {
     [setProgram],
   )
 
+  const handleFlowMutation = useCallback(() => {
+    setSelectedExampleId("")
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    beginFlowEdit()
+  }, [beginFlowEdit])
+
   const loadExample = (id: string) => {
     const example = examples.find(candidate => candidate.id === id)
     if (!example) return
     if (debounceRef.current !== null) window.clearTimeout(debounceRef.current)
+    debounceRef.current = null
     setSelectedExampleId(id)
     setPendingKind(null)
     setProgram(example.program, "example")
@@ -92,7 +107,15 @@ export default function App() {
               <span className="live-badge">300ms 자동 변환</span>
             </div>
             <p className="panel-help">공백 2칸으로 들여쓰면 오른쪽 순서도가 자동으로 바뀝니다.</p>
-            <CodeEditor value={code} error={parseError} onChange={handleCodeChange} />
+            {graphMessage ? (
+              <div className="graph-code-message" role="status">
+                <strong>아직 의사코드로 바꿀 수 없어요.</strong>
+                <span>{graphMessage}</span>
+                <small>순서도의 연결이나 기호 내용을 고치면 의사코드가 다시 나타납니다.</small>
+              </div>
+            ) : (
+              <CodeEditor value={code} error={parseError} onChange={handleCodeChange} />
+            )}
           </article>
 
           <article className="flow-panel">
@@ -114,6 +137,7 @@ export default function App() {
               pendingKind={pendingKind}
               graphMessage={graphMessage}
               onPendingConsumed={() => setPendingKind(null)}
+              onGraphMutation={handleFlowMutation}
               onProgramChange={handleProgramChange}
               onGraphMessage={setGraphMessage}
             />

@@ -1,13 +1,10 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 
 export type PaletteItemKind =
-  | "terminal-start"
-  | "terminal-end"
-  | "input"
-  | "output"
+  | "terminal"
+  | "io"
   | "process"
   | "decision"
-  | "loop"
 
 interface PaletteProps {
   pendingKind: PaletteItemKind | null
@@ -16,13 +13,10 @@ interface PaletteProps {
 }
 
 const items: Array<{ kind: PaletteItemKind; label: string; className: string }> = [
-  { kind: "terminal-start", label: "시작", className: "terminal" },
-  { kind: "terminal-end", label: "끝", className: "terminal" },
-  { kind: "input", label: "입력", className: "io" },
-  { kind: "output", label: "출력", className: "io" },
+  { kind: "terminal", label: "단말 기호", className: "terminal" },
+  { kind: "io", label: "입출력 기호", className: "io" },
   { kind: "process", label: "처리", className: "process" },
-  { kind: "decision", label: "조건 판단", className: "decision" },
-  { kind: "loop", label: "반복 판단", className: "decision" },
+  { kind: "decision", label: "판단 기호", className: "decision" },
 ]
 
 interface DragState {
@@ -80,6 +74,7 @@ export function Palette({ pendingKind, onSelect, onDrop }: PaletteProps) {
             key={item.kind}
             type="button"
             className={`palette-item ${item.className} ${pendingKind === item.kind ? "pending" : ""}`}
+            aria-label={item.label}
             aria-pressed={pendingKind === item.kind}
             onPointerDown={event => handlePointerDown(item.kind, event)}
             onPointerMove={handlePointerMove}
@@ -95,14 +90,16 @@ export function Palette({ pendingKind, onSelect, onDrop }: PaletteProps) {
               }
             }}
           >
-            {item.label}
+            <span className="visually-hidden">{item.label}</span>
           </button>
         ))}
       </div>
       {preview && (
-        <div className="drag-preview" style={{ left: preview.x, top: preview.y }} aria-hidden="true">
-          {items.find(item => item.kind === preview.kind)?.label}
-        </div>
+        <div
+          className={`drag-preview ${items.find(item => item.kind === preview.kind)?.className ?? ""}`}
+          style={{ left: preview.x, top: preview.y }}
+          aria-hidden="true"
+        />
       )}
     </section>
   )

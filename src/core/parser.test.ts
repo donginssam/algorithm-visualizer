@@ -28,4 +28,29 @@ describe("의사코드 파서와 생성기", () => {
       expect((error as Error).message).toContain("← 뒤")
     }
   })
+
+  it("중첩된 조건과 반복도 손실 없이 왕복 변환한다", () => {
+    const program = {
+      body: [
+        {
+          type: "loop" as const,
+          condition: "수가 10보다 작을 동안",
+          body: [
+            {
+              type: "if" as const,
+              condition: "수가 짝수이면",
+              thenBody: [{ type: "output" as const, expr: "수" }],
+              elseBody: [{ type: "assign" as const, target: "수", expr: "수 + 1" }],
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(parsePseudocode(astToText(program))).toEqual(program)
+  })
+
+  it("공백 뒤에 섞인 탭도 정확한 줄에서 안내한다", () => {
+    expect(() => parsePseudocode("시작\n  \t입력: 수\n끝")).toThrow("탭 대신 공백 2칸")
+  })
 })

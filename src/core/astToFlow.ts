@@ -34,33 +34,132 @@ function statementData(statement: Exclude<Statement, { type: "loop" | "if" }>): 
 }
 
 export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
-  const layoutGraph = new dagre.graphlib.Graph()
+  const layoutGraph = new dagre.graphlib.Graph({ multigraph: true })
   layoutGraph.setDefaultEdgeLabel(() => ({}))
   layoutGraph.setGraph({ rankdir: "TB", nodesep: 54, ranksep: 86, marginx: 36, marginy: 28 })
 
   graph.nodes.forEach(node => {
     const size = NODE_SIZES[node.data.kind]
-    layoutGraph.setNode(node.id, size)
+    // Dagre가 노드 라벨 객체에 x/y를 기록하므로 종류별 크기 객체를 공유하면
+    // 같은 종류의 모든 노드가 마지막 좌표로 덮입니다.
+    layoutGraph.setNode(node.id, { ...size })
   })
 
   graph.edges.forEach(edge => {
     if (edge.data?.branch !== "loop-back") {
-      layoutGraph.setEdge(edge.source, edge.target)
+      layoutGraph.setEdge(edge.source, edge.target, {}, edge.id)
     }
   })
 
-  dagre.layout(layoutGraph)
+  // Dagre 3의 동적 캐시는 서로 다른 예제/StrictMode 렌더 사이에서 좌표를 섞을 수 있습니다.
+  // 매 변환을 독립 배치해 같은 입력은 항상 같은 위치를 얻도록 합니다.
+  dagre.layout(layoutGraph, { useDynamic: false })
+
+  const nodes = graph.nodes.map(node => {
+    const point = layoutGraph.node(node.id)
+    const size = NODE_SIZES[node.data.kind]
+    return {
+      ...node,
+      position: { x: point.x - size.width / 2, y: point.y - size.height / 2 },
+    }
+  })
+  const nodesById = new Map(nodes.map(node => [node.id, node]))
+  const graphLeft = Math.min(...nodes.map(node => node.position.x))
+  const graphRight = Math.max(
+    ...nodes.map(node => node.position.x + NODE_SIZES[node.data.kind].width),
+  )
+
+  const loopEdges = graph.edges
+    .filter(edge => edge.data?.branch === "loop-back")
+    .map(edge => {
+      const source = nodesById.get(edge.source)
+      const target = nodesById.get(edge.target)
+      const sourceSize = source ? NODE_SIZES[source.data.kind] : NODE_SIZES.process
+      const targetSize = target ? NODE_SIZES[target.data.kind] : NODE_SIZES.decision
+      const sourceBottom = (source?.position.y ?? 0) + sourceSize.height
+      const targetTop = target?.position.y ?? 0
+      return { edge, source, target, sourceSize, targetSize, span: Math.abs(sourceBottom - targetTop) }
+    })
+    .sort((a, b) => a.span - b.span)
+  const loopLaneById = new Map(
+    loopEdges.map((entry, index) => [entry.edge.id, graphRight + 46 + index * 26]),
+  )
+
+  const edges = graph.edges.map(edge => {
+    if (edge.data?.branch !== "loop-back") {
+      const source = nodesById.get(edge.source)
+      const target = nodesById.get(edge.target)
+      if (!source || !target) return edge
+
+      const sourceSize = NODE_SIZES[source.data.kind]
+      const targetSize = NODE_SIZES[target.data.kind]
+      const branch = edge.data?.branch
+      const isLoopDecision = source.data.kind === "decision" && source.data.controlKind === "loop"
+      const sourceRatio = branch === "yes"
+        ? (isLoopDecision ? 0.66 : 0.34)
+        : branch === "no"
+          ? (isLoopDecision ? 0.34 : 0.66)
+          : 0.5
+      const sourcePoint = {
+        x: source.position.x + sourceSize.width * sourceRatio,
+        y: source.position.y + sourceSize.height,
+      }
+      const targetPoint = {
+        x: target.position.x + targetSize.width / 2,
+        y: target.position.y,
+      }
+      const isDirectMerge = source.data.kind === "decision"
+        && target.data.kind === "junction"
+        && (branch === "yes" || branch === "no")
+      const middleY = sourcePoint.y + (targetPoint.y - sourcePoint.y) / 2
+      const routePoints = isDirectMerge
+        ? [
+            sourcePoint,
+            { x: sourcePoint.x, y: sourcePoint.y + 34 },
+            { x: branch === "yes" ? graphLeft - 34 : graphRight + 34, y: sourcePoint.y + 34 },
+            { x: branch === "yes" ? graphLeft - 34 : graphRight + 34, y: targetPoint.y - 34 },
+            { x: targetPoint.x, y: targetPoint.y - 34 },
+            targetPoint,
+          ]
+        : [
+            sourcePoint,
+            { x: sourcePoint.x, y: middleY },
+            { x: targetPoint.x, y: middleY },
+            targetPoint,
+          ]
+      return {
+        ...edge,
+        data: { ...edge.data, routePoints },
+      }
+    }
+
+    const entry = loopEdges.find(candidate => candidate.edge.id === edge.id)
+    const laneX = loopLaneById.get(edge.id)
+    if (!entry?.source || !entry.target || laneX === undefined) return edge
+
+    const sourceX = entry.source.position.x + entry.sourceSize.width / 2
+    const sourceY = entry.source.position.y + entry.sourceSize.height
+    const targetX = entry.target.position.x + entry.targetSize.width / 2
+    const targetY = entry.target.position.y
+    return {
+      ...edge,
+      data: {
+        ...edge.data,
+        routePoints: [
+          { x: sourceX, y: sourceY },
+          { x: sourceX, y: sourceY + 34 },
+          { x: laneX, y: sourceY + 34 },
+          { x: laneX, y: targetY - 34 },
+          { x: targetX, y: targetY - 34 },
+          { x: targetX, y: targetY },
+        ],
+      },
+    }
+  })
 
   return {
-    nodes: graph.nodes.map(node => {
-      const point = layoutGraph.node(node.id)
-      const size = NODE_SIZES[node.data.kind]
-      return {
-        ...node,
-        position: { x: point.x - size.width / 2, y: point.y - size.height / 2 },
-      }
-    }),
-    edges: graph.edges,
+    nodes,
+    edges,
   }
 }
 
@@ -85,7 +184,7 @@ export function astToFlow(program: Program): FlowGraph {
       target,
       sourceHandle: isBranch ? branch : "next",
       targetHandle: "target",
-      type: "smoothstep",
+      type: branch === "loop-back" ? "loop-back" : "editable",
       label: branch === "yes" ? "예" : branch === "no" ? "아니오" : undefined,
       markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
       data: { branch },
