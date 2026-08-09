@@ -2,7 +2,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MarkerType,
   ReactFlow,
   addEdge,
   applyEdgeChanges,
@@ -25,7 +24,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react"
 import type { Program } from "../core/ast"
-import { astToFlow } from "../core/astToFlow"
+import { arrowMarker, astToFlow } from "../core/astToFlow"
 import { flowToAst, FlowValidationError } from "../core/flowToAst"
 import { flowToSvg, graphBounds } from "../core/flowToSvg"
 import type {
@@ -392,7 +391,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
         id: `user-edge-${Date.now()}-${userNodeSequence++}`,
         type: branch === "loop-back" ? "loop-back" : "editable",
         label: branch === "yes" ? "예" : branch === "no" ? "아니오" : undefined,
-        markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+        markerEnd: arrowMarker(branch),
         data: { branch, routePoints },
         className: branch === "loop-back" ? "loop-back-edge" : undefined,
       },

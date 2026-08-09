@@ -31,5 +31,9 @@ function statementLines(statement: Statement, depth: number): string[] {
 
 /** AST를 다시 편집 가능한 표준 의사코드로 출력합니다. */
 export function astToText(program: Program): string {
+  // 본문이 없으면 '끝'을 붙이지 않습니다. 처음 화면은 '시작' 한 줄에서 시작하고,
+  // 순서도도 같은 규칙으로 '시작' 기호만 그립니다(core/astToFlow.ts).
+  if (program.body.length === 0) return "시작"
+
   return ["시작", ...program.body.flatMap(statement => statementLines(statement, 1)), "끝"].join("\n")
 }

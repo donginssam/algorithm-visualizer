@@ -10,7 +10,7 @@
  * 규칙을 씁니다.
  */
 
-import { NODE_SIZES } from "./astToFlow"
+import { NODE_SIZES, oppositeSide, yesSideOf } from "./astToFlow"
 import { loopBackPath, roundedRoutePath, type RoutePoint } from "./edgeGeometry"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowNodeKind } from "./flowTypes"
 
@@ -25,8 +25,11 @@ const SHAPE_FILL: Record<FlowNodeKind, string> = {
 }
 
 const SHAPE_STROKE = "rgba(30, 41, 59, 0.42)"
-const EDGE_STROKE = "#94a3b8"
+/** 화살표 색·굵기 — src/index.css의 --edge-stroke, --xy-edge-stroke-width와 같은 값. */
+const EDGE_STROKE = "#475569"
+const EDGE_WIDTH = 2.2
 const LOOP_EDGE_STROKE = "#7c5cf0"
+const LOOP_EDGE_WIDTH = 2.4
 const TEXT_COLOR = "#111827"
 const LABEL_COLOR = "#35415e"
 const FONT_STACK = "-apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif"
@@ -59,13 +62,16 @@ function sizeOf(node: AlgorithmFlowNode) {
   }
 }
 
-/** 판단 기호의 예/아니오 출구는 폭의 34% · 66% 지점입니다(FlowNodes.tsx와 동일). */
+/** 판단 기호의 예/아니오는 마름모의 좌우 꼭짓점에서 나갑니다(FlowNodes.tsx와 동일). */
 function sourcePoint(node: AlgorithmFlowNode, handle: string | null | undefined): RoutePoint {
   const { width, height } = sizeOf(node)
   if (node.data.kind === "decision" && (handle === "yes" || handle === "no")) {
-    const isLoop = node.data.controlKind === "loop"
-    const ratio = handle === "yes" ? (isLoop ? 0.66 : 0.34) : isLoop ? 0.34 : 0.66
-    return { x: node.position.x + width * ratio, y: node.position.y + height }
+    const yesSide = yesSideOf(node.data)
+    const side = handle === "yes" ? yesSide : oppositeSide(yesSide)
+    return {
+      x: side === "left" ? node.position.x : node.position.x + width,
+      y: node.position.y + height / 2,
+    }
   }
   return { x: node.position.x + width / 2, y: node.position.y + height }
 }
@@ -163,7 +169,7 @@ function edgeMarkup(
 
   const stroke = isLoopBack ? LOOP_EDGE_STROKE : EDGE_STROKE
   const path =
-    `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${isLoopBack ? 2 : 1.5}" ` +
+    `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${isLoopBack ? LOOP_EDGE_WIDTH : EDGE_WIDTH}" ` +
     `marker-end="url(#arrow-${isLoopBack ? "loop" : "plain"})" />`
 
   const text = typeof edge.label === "string" ? edge.label : ""
@@ -238,8 +244,10 @@ export function flowToSvg(
   const offsetX = round(EXPORT_MARGIN - left)
   const offsetY = round(EXPORT_MARGIN - top)
 
+  // markerWidth/Height의 기본 단위는 선 굵기입니다. 화면(React Flow)과 같은
+  // 크기(10px 남짓)가 되도록 굵기를 곱한 값이 20 언저리가 되게 잡습니다.
   const arrowMarker = (id: string, color: string) =>
-    `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">` +
+    `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">` +
     `<path d="M 0 0 L 10 5 L 0 10 z" fill="${color}" /></marker>`
 
   const markup =

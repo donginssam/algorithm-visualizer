@@ -65,8 +65,17 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
   const starts = nodes.filter(node => node.data.kind === "terminal" && node.data.terminalRole === "start")
   const ends = nodes.filter(node => node.data.kind === "terminal" && node.data.terminalRole === "end")
 
-  if (starts.length !== 1 || ends.length !== 1) {
-    throw new FlowValidationError("시작과 끝 기호가 각각 하나씩 있어야 해요.")
+  if (starts.length !== 1) {
+    throw new FlowValidationError("시작 기호가 하나 있어야 해요.")
+  }
+  if (ends.length > 1) {
+    throw new FlowValidationError("끝 기호는 하나만 둘 수 있어요.")
+  }
+  if (ends.length === 0) {
+    // 처음 화면입니다. '시작'만 놓여 있으면 아직 본문이 없는 프로그램으로 봅니다
+    // (astToFlow가 빈 프로그램을 이렇게 그립니다).
+    if (nodes.length === 1 && edges.length === 0) return { body: [] }
+    throw new FlowValidationError("'끝' 기호를 놓고 마지막 기호와 이어 주세요.")
   }
 
   for (const edge of edges) {
@@ -88,7 +97,11 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
   }
 
   const startEdges = outgoing.get(starts[0].id) ?? []
-  if (startEdges.length !== 1) {
+  if (startEdges.length === 0) {
+    // 처음 화면에서 기호를 막 놓은 상태입니다. 무엇을 해야 하는지 알려 줍니다.
+    throw new FlowValidationError("시작 기호에서 다음 기호로 화살표를 이어 주세요.")
+  }
+  if (startEdges.length > 1) {
     throw new FlowValidationError("시작 기호에서는 화살표가 하나만 나가야 해요.")
   }
   if ((outgoing.get(ends[0].id) ?? []).length > 0) {

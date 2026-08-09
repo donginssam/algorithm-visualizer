@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react"
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
-import type { AlgorithmFlowNode } from "../../core/flowTypes"
+import { oppositeSide, yesSideOf } from "../../core/astToFlow"
+import type { AlgorithmFlowNode, DecisionSide } from "../../core/flowTypes"
 
 export interface NodeActions {
   edit: (id: string) => void
@@ -107,10 +108,29 @@ export function ProcessNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>
   )
 }
 
+/**
+ * 판단 기호의 갈래 연결점.
+ *
+ * 마름모의 좌우 꼭짓점에서 나갑니다. 두 갈래가 바닥에서 나오면 다음 기호가
+ * 반대편에 있을 때 선이 엇갈려 예/아니오를 구분할 수 없습니다. 어느 쪽으로
+ * 내보낼지는 자동 배치기가 정합니다(core/astToFlow.ts).
+ */
+function BranchHandle({ id, side, caption }: { id: "yes" | "no"; side: DecisionSide; caption: string }) {
+  return (
+    <>
+      <span className={`handle-caption handle-caption-${side}`}>{caption}</span>
+      <Handle
+        id={id}
+        type="source"
+        position={side === "left" ? Position.Left : Position.Right}
+        className={`large-handle decision-handle decision-handle-${side}`}
+      />
+    </>
+  )
+}
+
 export function DecisionNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>) {
-  const isLoop = data.controlKind === "loop"
-  const yesPosition = isLoop ? "66%" : "34%"
-  const noPosition = isLoop ? "34%" : "66%"
+  const yesSide = yesSideOf(data)
 
   return (
     <div className="node-frame decision-frame">
@@ -119,22 +139,8 @@ export function DecisionNode({ id, data, selected }: NodeProps<AlgorithmFlowNode
       <Shape className="decision-shape" outline={SHAPE_OUTLINES.decision}>
         <span>{data.label}</span>
       </Shape>
-      <span className="handle-caption" style={{ left: yesPosition }}>예</span>
-      <Handle
-        id="yes"
-        type="source"
-        position={Position.Bottom}
-        className="large-handle decision-handle yes-handle"
-        style={{ left: yesPosition }}
-      />
-      <span className="handle-caption" style={{ left: noPosition }}>아니오</span>
-      <Handle
-        id="no"
-        type="source"
-        position={Position.Bottom}
-        className="large-handle decision-handle no-handle"
-        style={{ left: noPosition }}
-      />
+      <BranchHandle id="yes" side={yesSide} caption="예" />
+      <BranchHandle id="no" side={oppositeSide(yesSide)} caption="아니오" />
     </div>
   )
 }

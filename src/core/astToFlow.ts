@@ -1,9 +1,10 @@
 import dagre from "@dagrejs/dagre"
-import { MarkerType } from "@xyflow/react"
+import { MarkerType, type EdgeMarker } from "@xyflow/react"
 import type { Program, Statement } from "./ast"
 import type {
   AlgorithmFlowEdge,
   AlgorithmFlowNode,
+  DecisionSide,
   FlowEdgeData,
   FlowGraph,
   FlowNodeData,
@@ -19,6 +20,36 @@ export const NODE_SIZES: Record<FlowNodeData["kind"], { width: number; height: n
   junction: { width: 18, height: 18 },
 }
 
+/** 화살표 색 — src/index.css의 --edge-stroke/--accent-alt, flowToSvg.ts의 EDGE_STROKE와 같은 값. */
+const EDGE_COLOR = "#475569"
+const LOOP_EDGE_COLOR = "#7c5cf0"
+
+/**
+ * 화살촉 크기.
+ *
+ * React Flow 마커는 markerUnits="strokeWidth"라서 선 굵기(2.2 =
+ * --xy-edge-stroke-width)와 곱해집니다. 마커 상자는 20 단위 viewBox 안에 5
+ * 단위짜리 화살촉을 그리므로 실제 크기는 16 × 2.2 ÷ 4 ≈ 9px —
+ * flowToSvg.ts가 PNG에 그리는 화살촉과 같은 크기입니다.
+ */
+const ARROW_MARKER_SIZE = 16
+
+/**
+ * 화살표 끝의 화살촉.
+ *
+ * 색을 반드시 지정합니다. 마커는 <defs> 안에 있어 엣지의 CSS 규칙이 닿지 않고,
+ * 색을 비워 두면 React Flow가 기본색(#b1b1b7)을 인라인 스타일로 박아 넣어
+ * 선만 진해지고 화살촉은 흐린 채로 남습니다.
+ */
+export function arrowMarker(branch: FlowEdgeData["branch"]): EdgeMarker {
+  return {
+    type: MarkerType.ArrowClosed,
+    width: ARROW_MARKER_SIZE,
+    height: ARROW_MARKER_SIZE,
+    color: branch === "loop-back" ? LOOP_EDGE_COLOR : EDGE_COLOR,
+  }
+}
+
 function flowNode(id: string, data: FlowNodeData, type: AlgorithmFlowNode["type"]): AlgorithmFlowNode {
   return { id, type, data, position: { x: 0, y: 0 } }
 }
@@ -32,6 +63,56 @@ function statementData(statement: Exclude<Statement, { type: "loop" | "if" }>): 
     case "output":
       return { kind: "output", label: `출력: ${statement.expr}` }
   }
+}
+
+export function oppositeSide(side: DecisionSide): DecisionSide {
+  return side === "left" ? "right" : "left"
+}
+
+/**
+ * 판단 기호의 '예'가 나가는 쪽.
+ *
+ * 자동 배치를 해 봐야 알 수 있으므로 `layoutFlowGraph`가 노드 데이터에 적어 둡니다.
+ * 아직 정해지지 않았으면(팔레트에서 갓 놓은 기호 등) 기본값을 씁니다.
+ */
+export function yesSideOf(data: FlowNodeData): DecisionSide {
+  return data.yesSide ?? (data.controlKind === "loop" ? "right" : "left")
+}
+
+/**
+ * 판단 기호마다 예/아니오가 나갈 쪽을 정합니다.
+ *
+ * 늘 같은 쪽으로 내보내면 다음 기호가 반대편에 놓였을 때 두 선이 마름모 아래에서
+ * 서로 엇갈려, 어느 선이 '예'인지 알아볼 수 없습니다. 다음 기호가 있는 쪽으로
+ * 내보내면 교차가 생기지 않습니다.
+ */
+function decisionSides(
+  nodes: AlgorithmFlowNode[],
+  edges: AlgorithmFlowEdge[],
+  nodesById: Map<string, AlgorithmFlowNode>,
+): Map<string, DecisionSide> {
+  const centerX = (id: string | undefined) => {
+    const node = id ? nodesById.get(id) : undefined
+    return node ? node.position.x + NODE_SIZES[node.data.kind].width / 2 : undefined
+  }
+  const sides = new Map<string, DecisionSide>()
+
+  for (const node of nodes) {
+    if (node.data.kind !== "decision") continue
+
+    const outgoing = edges.filter(edge => edge.source === node.id)
+    const yesX = centerX(outgoing.find(edge => edge.data?.branch === "yes")?.target)
+    const noX = centerX(outgoing.find(edge => edge.data?.branch === "no")?.target)
+    // 두 갈래가 같은 열에 놓였다면(합류점으로 바로 가는 경우 등) 기본값을 씁니다.
+    const decided = yesX === undefined || noX === undefined || Math.abs(yesX - noX) < 1
+      ? yesSideOf({ ...node.data, yesSide: undefined })
+      : yesX < noX
+        ? "left"
+        : "right"
+    sides.set(node.id, decided)
+  }
+
+  return sides
 }
 
 export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
@@ -56,7 +137,7 @@ export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
   // 매 변환을 독립 배치해 같은 입력은 항상 같은 위치를 얻도록 합니다.
   dagre.layout(layoutGraph, { useDynamic: false })
 
-  const nodes = graph.nodes.map(node => {
+  const positioned = graph.nodes.map(node => {
     const point = layoutGraph.node(node.id)
     const size = NODE_SIZES[node.data.kind]
     return {
@@ -64,6 +145,17 @@ export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
       position: { x: point.x - size.width / 2, y: point.y - size.height / 2 },
     }
   })
+  const yesSideById = decisionSides(
+    positioned,
+    graph.edges,
+    new Map(positioned.map(node => [node.id, node])),
+  )
+  const nodes = positioned.map(node => {
+    const side = yesSideById.get(node.id)
+    return side ? { ...node, data: { ...node.data, yesSide: side } } : node
+  })
+  // 아래 화살표 경로 계산은 반드시 yesSide가 적힌 노드를 봐야 합니다. 손잡이(화면)와
+  // 경로(선)가 서로 다른 쪽을 고르면 선이 도형을 가로질러 버립니다.
   const nodesById = new Map(nodes.map(node => [node.id, node]))
   const graphLeft = Math.min(...nodes.map(node => node.position.x))
   const graphRight = Math.max(
@@ -95,30 +187,39 @@ export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
       const sourceSize = NODE_SIZES[source.data.kind]
       const targetSize = NODE_SIZES[target.data.kind]
       const branch = edge.data?.branch
-      const isLoopDecision = source.data.kind === "decision" && source.data.controlKind === "loop"
-      const sourceRatio = branch === "yes"
-        ? (isLoopDecision ? 0.66 : 0.34)
-        : branch === "no"
-          ? (isLoopDecision ? 0.34 : 0.66)
-          : 0.5
-      const sourcePoint = {
-        x: source.position.x + sourceSize.width * sourceRatio,
-        y: source.position.y + sourceSize.height,
-      }
+      // 예/아니오는 마름모의 좌우 꼭짓점에서 각자의 방향으로 나갑니다(§2 교과서 표기).
+      const exitSide = source.data.kind === "decision" && (branch === "yes" || branch === "no")
+        ? branch === "yes"
+          ? yesSideOf(source.data)
+          : oppositeSide(yesSideOf(source.data))
+        : null
+      const sourcePoint = exitSide
+        ? {
+            x: exitSide === "left" ? source.position.x : source.position.x + sourceSize.width,
+            y: source.position.y + sourceSize.height / 2,
+          }
+        : {
+            x: source.position.x + sourceSize.width / 2,
+            y: source.position.y + sourceSize.height,
+          }
       const targetPoint = {
         x: target.position.x + targetSize.width / 2,
         y: target.position.y,
       }
-      const isDirectMerge = source.data.kind === "decision"
-        && target.data.kind === "junction"
-        && (branch === "yes" || branch === "no")
+      const isDirectMerge = exitSide !== null && target.data.kind === "junction"
+      // 빈 갈래는 다음 기호들을 가로지르지 않도록 순서도 바깥 통로로 우회합니다.
+      const laneX = exitSide === "left" ? graphLeft - 34 : graphRight + 34
+      // 그 밖의 갈래는 목적지 열까지 옆으로 나간 뒤 내려갑니다. 목적지가 마름모
+      // 바로 아래에 있으면 도형을 뚫지 않도록 최소한 옆으로 비켜 놓습니다.
+      const turnX = exitSide === "left"
+        ? Math.min(targetPoint.x, sourcePoint.x - 12)
+        : Math.max(targetPoint.x, sourcePoint.x + 12)
       const middleY = sourcePoint.y + (targetPoint.y - sourcePoint.y) / 2
-      const routePoints = isDirectMerge
+      const routePoints = exitSide
         ? [
             sourcePoint,
-            { x: sourcePoint.x, y: sourcePoint.y + 34 },
-            { x: branch === "yes" ? graphLeft - 34 : graphRight + 34, y: sourcePoint.y + 34 },
-            { x: branch === "yes" ? graphLeft - 34 : graphRight + 34, y: targetPoint.y - 34 },
+            { x: isDirectMerge ? laneX : turnX, y: sourcePoint.y },
+            { x: isDirectMerge ? laneX : turnX, y: targetPoint.y - 34 },
             { x: targetPoint.x, y: targetPoint.y - 34 },
             targetPoint,
           ]
@@ -166,9 +267,19 @@ export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
 
 /** AST를 React Flow에서 바로 사용할 수 있는 노드와 화살표로 바꿉니다. */
 export function astToFlow(program: Program): FlowGraph {
+  /*
+   * 본문이 비어 있으면 '끝'을 두지 않습니다.
+   *
+   * 처음 화면에 '시작 → 끝'이 놓여 있으면 이미 완성된 프로그램처럼 보이고,
+   * 사이에 기호를 끼우려면 화살표부터 지워야 합니다. '시작' 하나에서 출발해
+   * 아래로 쌓아 가고 '끝' 단말은 학생이 직접 놓게 합니다.
+   */
+  const hasEnd = program.body.length > 0
   const nodes: AlgorithmFlowNode[] = [
     flowNode("terminal-start", { kind: "terminal", label: "시작", terminalRole: "start" }, "terminal"),
-    flowNode("terminal-end", { kind: "terminal", label: "끝", terminalRole: "end" }, "terminal"),
+    ...(hasEnd
+      ? [flowNode("terminal-end", { kind: "terminal", label: "끝", terminalRole: "end" }, "terminal")]
+      : []),
   ]
   const edges: AlgorithmFlowEdge[] = []
   let edgeSequence = 0
@@ -187,7 +298,7 @@ export function astToFlow(program: Program): FlowGraph {
       targetHandle: "target",
       type: branch === "loop-back" ? "loop-back" : "editable",
       label: branch === "yes" ? "예" : branch === "no" ? "아니오" : undefined,
-      markerEnd: { type: MarkerType.ArrowClosed, width: 18, height: 18 },
+      markerEnd: arrowMarker(branch),
       data: { branch },
       className: branch === "loop-back" ? "loop-back-edge" : undefined,
     })
@@ -247,7 +358,7 @@ export function astToFlow(program: Program): FlowGraph {
   }
 
   const exits = buildBlock(program.body, [{ id: "terminal-start" }], "root")
-  exits.forEach(exit => addEdge(exit.id, "terminal-end", exit.branch))
+  if (hasEnd) exits.forEach(exit => addEdge(exit.id, "terminal-end", exit.branch))
 
   return layoutFlowGraph({ nodes, edges })
 }

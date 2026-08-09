@@ -8,12 +8,21 @@ describe("의사코드 파서와 생성기", () => {
     expect(parsePseudocode(astToText(program))).toEqual(program)
   })
 
-  // 처음 화면에 올라오는 상태입니다.
-  it("본문이 비어 있는 프로그램은 시작과 끝 두 줄이 된다", () => {
+  // 처음 화면에 올라오는 상태입니다. 순서도도 '시작' 기호 하나만 그립니다.
+  it("본문이 비어 있는 프로그램은 시작 한 줄이 된다", () => {
     const empty = { body: [] }
 
-    expect(astToText(empty)).toBe("시작\n끝")
+    expect(astToText(empty)).toBe("시작")
     expect(parsePseudocode(astToText(empty))).toEqual(empty)
+  })
+
+  it("'시작'만 있어도, '시작/끝' 두 줄이어도 빈 프로그램으로 읽는다", () => {
+    expect(parsePseudocode("시작")).toEqual({ body: [] })
+    expect(parsePseudocode("시작\n끝")).toEqual({ body: [] })
+  })
+
+  it("문장을 적었는데 끝이 없으면 끝을 적으라고 안내한다", () => {
+    expect(() => parsePseudocode("시작\n  입력: 수")).toThrow("'끝'을 적어 주세요")
   })
 
   it("키보드용 연산 기호를 교과서 기호로 바꾼다", () => {

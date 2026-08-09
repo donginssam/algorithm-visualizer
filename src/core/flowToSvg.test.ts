@@ -58,14 +58,14 @@ describe("순서도 → PNG 저장용 SVG", () => {
     expect(markup).not.toContain("값 <- 3 & 5")
   })
 
-  // 처음 화면에서도 바로 저장할 수 있어야 합니다.
-  it("본문이 비어 있는 프로그램도 저장할 수 있다", () => {
+  // 처음 화면에서도 바로 저장할 수 있어야 합니다. '끝'은 아직 놓이지 않습니다.
+  it("시작 기호만 있는 처음 화면도 저장할 수 있다", () => {
     const graph = astToFlow({ body: [] })
     const { markup } = flowToSvg(graph.nodes, graph.edges)
 
     expect(markup).toContain("시작")
-    expect(markup).toContain("끝")
-    expect(markup.match(/marker-end="url\(#arrow-/g) ?? []).toHaveLength(1)
+    expect(markup).not.toContain("끝")
+    expect(markup.match(/marker-end="url\(#arrow-/g) ?? []).toHaveLength(0)
   })
 
   it("기호가 하나도 없으면 안내 메시지를 던진다", () => {

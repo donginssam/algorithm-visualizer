@@ -108,6 +108,10 @@ export function parsePseudocode(source: string): Program {
     throw new PseudocodeParseError(lines[0].number, "'시작'은 들여쓰지 않고 적어 주세요.")
   }
 
+  // 처음 화면입니다. 아직 문장이 없으면 '끝' 없이 '시작' 한 줄만으로도 올바른
+  // 프로그램으로 봅니다. 문장을 하나라도 적으면 아래에서 '끝'을 요구합니다.
+  if (lines.length === 1) return { body: [] }
+
   const lastLine = lines[lines.length - 1]
   if (lastLine.text !== "끝") {
     throw new PseudocodeParseError(lastLine.number, "마지막 줄에 '끝'을 적어 주세요.")

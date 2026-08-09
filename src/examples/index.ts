@@ -43,38 +43,6 @@ export const sumOfSquares: Example = {
 }
 
 /**
- * 두 수를 입력받아 더 큰 수를 찾는 알고리즘.
- *
- * 시작
- *   입력: 가
- *   입력: 나
- *   [만약 가가 나보다 크면]
- *     최댓값 ← 가
- *   [아니면]
- *     최댓값 ← 나
- *   출력: 최댓값
- * 끝
- */
-export const findMax: Example = {
-  id: "find-max",
-  title: "최댓값 찾기",
-  description: "두 수 중에서 더 큰 수를 찾아요",
-  program: {
-    body: [
-      { type: "input", variable: "가" },
-      { type: "input", variable: "나" },
-      {
-        type: "if",
-        condition: "가가 나보다 크면",
-        thenBody: [{ type: "assign", target: "최댓값", expr: "가" }],
-        elseBody: [{ type: "assign", target: "최댓값", expr: "나" }],
-      },
-      { type: "output", expr: "최댓값" },
-    ],
-  },
-}
-
-/**
  * 수를 입력받아 짝수인지 홀수인지 판별하는 알고리즘.
  *
  * 시작
@@ -102,4 +70,4 @@ export const evenOrOdd: Example = {
   },
 }
 
-export const examples: Example[] = [sumOfSquares, findMax, evenOrOdd]
+export const examples: Example[] = [sumOfSquares, evenOrOdd]

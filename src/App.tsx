@@ -4,6 +4,7 @@ import { CodeEditor } from "./components/CodeEditor"
 import { ExamplesPage } from "./components/ExamplesPage"
 import { FlowCanvas, type FlowCanvasHandle } from "./components/FlowCanvas"
 import { Palette, type PaletteItemKind } from "./components/Palette"
+import { SyntaxHelp } from "./components/SyntaxHelp"
 import type { Example } from "./examples"
 import { navigateTo, useHashRoute } from "./hooks/useHashRoute"
 import { useAppStore } from "./store/useAppStore"
@@ -138,8 +139,7 @@ export default function App() {
           <div className="brand">
             <BrandMark />
             <div className="brand-copy">
-              <span className="eyebrow">정보 교과 · 알고리즘</span>
-              <h1>알고리즘 순서도 만들기</h1>
+              <h1>알고리즘 표현하기</h1>
             </div>
           </div>
 
@@ -161,7 +161,7 @@ export default function App() {
                     disabled={exportState.kind === "working"}
                   >
                     <span aria-hidden="true">⬇</span>
-                    PNG로 저장
+                    이미지로 저장
                   </button>
                   <span className={`export-status ${exportState.kind}`} role="status">
                     {exportState.message}
@@ -188,9 +188,9 @@ export default function App() {
                   </span>
                   <h2>글로 알고리즘 쓰기</h2>
                 </div>
-                <span className="live-badge">300ms 자동 변환</span>
               </div>
               <p className="panel-help">공백 2칸으로 들여쓰면 순서도가 자동으로 바뀝니다.</p>
+              <SyntaxHelp />
               {graphMessage ? (
                 <div className="graph-code-message" role="status">
                   <strong>아직 의사코드로 바꿀 수 없어요.</strong>

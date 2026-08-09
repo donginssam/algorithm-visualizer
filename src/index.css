@@ -54,6 +54,10 @@
   --symbol-stroke-soft: rgb(30 41 59 / 25%);
   --symbol-ink: #111827;
 
+  /* 순서도 화살표 — core/flowToSvg.ts의 EDGE_STROKE와 같은 값이어야 합니다. */
+  --edge-stroke: #475569;
+  --edge-width: 2.2;
+
   /* 형태 */
   --radius-xs: 6px;
   --radius-sm: 10px;
@@ -149,7 +153,7 @@ h2 {
   letter-spacing: -0.025em;
 }
 
-:where(a, button, input, select, [role="tab"]):focus-visible {
+:where(a, button, input, select, summary, [role="tab"]):focus-visible {
   outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -277,13 +281,6 @@ h2 {
   flex-direction: column;
 }
 
-.eyebrow {
-  color: var(--accent);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-}
-
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -404,16 +401,6 @@ h2 {
   background: var(--accent-alt);
 }
 
-.live-badge {
-  padding: 6px 10px;
-  border-radius: var(--radius-pill);
-  color: var(--ok-fg);
-  background: var(--ok-bg);
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
 .gesture-help {
   display: flex;
   gap: 5px;
@@ -443,6 +430,128 @@ h2 {
 /* =========================================================================
    의사코드 편집기
    ========================================================================= */
+
+/* =========================================================================
+   문법 도움말 (접이식)
+   ========================================================================= */
+
+.syntax-help {
+  position: relative;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.syntax-help > summary {
+  display: flex;
+  min-height: var(--touch-min);
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.syntax-help > summary::-webkit-details-marker {
+  display: none;
+}
+
+.syntax-help > summary::after {
+  margin-left: auto;
+  color: var(--text-muted);
+  content: "▾";
+  font-size: 12px;
+}
+
+.syntax-help[open] > summary {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--accent-soft);
+}
+
+.syntax-help[open] > summary::after {
+  content: "▴";
+}
+
+.syntax-help-title {
+  color: var(--accent-ink);
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.syntax-help-peek {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.syntax-help[open] .syntax-help-peek {
+  display: none;
+}
+
+/* 편집기 위에 겹치는 펼침 영역. 화면 높이를 바꾸지 않아 세로 스크롤이 생기지 않습니다. */
+.syntax-help-body {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 5px);
+  right: 0;
+  left: 0;
+  max-height: min(300px, 42vh);
+  padding: 10px 12px;
+  overflow-y: auto;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-md);
+}
+
+.syntax-help-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.syntax-help-body th,
+.syntax-help-body td {
+  padding: 5px 8px 5px 0;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: left;
+  vertical-align: top;
+}
+
+.syntax-help-body thead th {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.syntax-help-body tbody th {
+  color: var(--text-strong);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.syntax-help-body td:last-child {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.syntax-help-body code {
+  color: var(--text-body);
+  font-family: inherit;
+  font-weight: 700;
+}
+
+.syntax-help-body ul {
+  margin: 8px 0 0;
+  padding-left: 17px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
 
 .code-editor-shell {
   display: grid;
@@ -583,6 +692,20 @@ h2 {
   min-height: 0;
 }
 
+/*
+ * 화살표 색과 굵기.
+ *
+ * React Flow 기본값은 #b1b1b7 · 1px이라 교실 화면에서 너무 흐립니다. v12가
+ * 노출하는 변수를 덮어쓰면 선과 화살촉(.react-flow__arrowhead polyline)이
+ * 한 번에 바뀝니다. 화살촉 크기는 astToFlow.ts의 ARROW_MARKER_SIZE와 짝입니다
+ * (마커 단위가 선 굵기라서 굵기를 바꾸면 화살촉도 같이 커집니다).
+ */
+.react-flow {
+  --xy-edge-stroke: var(--edge-stroke);
+  --xy-edge-stroke-width: var(--edge-width);
+  --xy-edge-stroke-selected: var(--accent);
+}
+
 .react-flow__pane {
   cursor: grab;
 }
@@ -699,26 +822,56 @@ h2 {
   outline-offset: 4px;
 }
 
+/*
+ * 연결점(손잡이).
+ *
+ * 손잡이 상자 자체를 44px로 키우면 안 된다. React Flow는 화살표의 끝을 손잡이
+ * 상자의 바깥 모서리(아래쪽 손잡이는 상자 아래끝, 위쪽 손잡이는 상자 위끝)에
+ * 붙이므로, 상자가 도형 밖으로 44px 튀어나오면 기호 사이(86px) 화살표가 가운데서
+ * 2px짜리 토막으로 줄어든다. 상자는 도형 테두리에 걸치는 16px로 두고, 터치 영역과
+ * 보이는 점은 ::before로 넓힌다(16 + 14×2 = 44px).
+ */
 .large-handle {
-  width: var(--touch-min) !important;
-  height: var(--touch-min) !important;
+  width: 16px !important;
+  height: 16px !important;
   border: 0 !important;
-  background: radial-gradient(circle, var(--accent) 0 5px, #fff 6px 7px, transparent 8px) !important;
+  background: none !important;
   z-index: 5;
 }
 
-.target-handle {
-  top: -22px !important;
+.large-handle::before {
+  position: absolute;
+  content: "";
+  inset: -14px;
+  background: radial-gradient(circle, var(--accent) 0 5px, #fff 6px 7px, transparent 8px);
 }
 
-.source-handle,
-.decision-handle {
-  bottom: -22px !important;
+.target-handle {
+  top: 0 !important;
+}
+
+.source-handle {
+  bottom: 0 !important;
+}
+
+/* 예/아니오는 마름모의 좌우 꼭짓점에서 나갑니다(core/astToFlow.ts와 짝). */
+.decision-handle-left {
+  top: 50% !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: 0 !important;
+}
+
+.decision-handle-right {
+  top: 50% !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
 }
 
 .handle-caption {
   position: absolute;
-  bottom: -26px;
+  top: 50%;
   z-index: 6;
   padding: 1px 5px;
   border-radius: var(--radius-xs);
@@ -726,8 +879,16 @@ h2 {
   background: rgb(255 255 255 / 92%);
   font-size: 11px;
   font-weight: 800;
-  transform: translateX(-50%);
+  transform: translateY(-50%);
   pointer-events: none;
+}
+
+.handle-caption-left {
+  right: calc(100% + 14px);
+}
+
+.handle-caption-right {
+  left: calc(100% + 14px);
 }
 
 .react-flow__node:not(.selected) .handle-caption {
@@ -798,14 +959,15 @@ h2 {
   fill-opacity: 0.88;
 }
 
-.loop-back-edge path {
+/* path 전체를 고르면 선택용 투명 경로(interactionWidth)까지 얇아져 터치가 어렵습니다. */
+.loop-back-edge .react-flow__edge-path {
   stroke: var(--accent-alt);
-  stroke-width: 2px;
+  stroke-width: 2.4px;
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: var(--accent);
-  stroke-width: 3px;
+  stroke-width: 3.4px;
 }
 
 .react-flow__controls {
