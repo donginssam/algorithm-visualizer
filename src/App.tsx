@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { FlowCanvasHandle } from "./components/FlowCanvas"
 import type { PaletteItemKind } from "./components/Palette"
+import { UpdatePrompt } from "./components/UpdatePrompt"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./core/flowTypes"
 import { clearWorkspace, saveWorkspace } from "./core/workspaceStore"
 import type { Example } from "./examples"
@@ -314,6 +315,8 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <UpdatePrompt onBeforeRefresh={saveNow} />
     </main>
   )
 }

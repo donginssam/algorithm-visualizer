@@ -1,0 +1,13 @@
+<!--
+  설치 아이콘과 favicon.
+
+  같은 그림이 icon-maskable.svg와 src/App.tsx의 BrandMark에도 있습니다.
+  BrandMark는 상단바 크기에 맞춰 비율이 조금 다릅니다.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>알고리즘 표현하기</title>
+  <rect width="32" height="32" rx="8" fill="#3f6ae1" />
+  <rect x="9" y="4" width="14" height="7" rx="3.5" fill="#ffe066" />
+  <path d="M16 11.5v4" stroke="white" stroke-width="2" stroke-linecap="round" />
+  <path d="M16 16l6.5 5.5L16 27l-6.5-5.5z" fill="#b7e4c7" />
+</svg>

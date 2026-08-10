@@ -89,6 +89,46 @@ interface Program {
 - **복원**: store가 만들어질 때 한 번 읽어 `program`·`code`·`source`·`parseError`의 초깃값으로 씁니다. 그래프는 `FlowCanvas`의 `restoredGraph` prop으로 넘어가고, **첫 자동 배치를 한 번 건너뜁니다**. 그러지 않으면 AST에서 다시 그리면서 연결하지 않은 기호가 사라집니다. 복원한 그래프가 미완성이면 검증만 다시 돌려 `graphMessage`를 띄웁니다(의사코드 초안은 건드리지 않습니다).
 - **초기화**: 상단 오른쪽 `초기화` 버튼이 확인 창을 띄우고, 확인하면 예약된 저장을 취소한 뒤 저장 값을 지우고 store를 빈 프로그램으로 되돌립니다.
 
+## 오프라인 실행과 설치
+
+작업 내용은 이미 기기 안(`localStorage`)에 있는데 그 내용을 여는 앱 코드만 매번 네트워크에서 받아야 했습니다. 학교 무선망이 끊기면 저장해 둔 작업을 열지도 못합니다. [`vite.config.ts`](../vite.config.ts)의 `VitePWA`가 이 부분을 메웁니다.
+
+- **precache 목록은 손으로 적지 않습니다.** 파일 이름에 해시가 붙고 vendor chunk가 갈라져 있고 `base`가 dev와 build에서 다르므로, 손으로 적은 목록은 배포할 때마다 낡습니다. Workbox가 빌드 결과에서 만듭니다.
+- `globPatterns`는 기본값(`js,css,html`)에 `svg`와 `icon-*.png`를 더합니다. 그러지 않으면 아이콘이 빠집니다. 설치 창 갈무리는 오프라인에서 쓸 일이 없어 일부러 뺐습니다.
+- 지연 불러오는 chunk도 **요청이 아니라 glob으로** 담기므로, 예제 화면에 한 번도 들어가지 않았어도 `ExamplesPage` chunk가 캐시에 들어갑니다. 오프라인에서 예제 화면이 비지 않는 이유입니다.
+- 화면 전환이 URL 해시라 문서는 `index.html` 하나뿐이고, 보통은 precache가 그대로 맞습니다. `navigateFallback`은 주소에 쿼리가 붙어(예: LMS 링크의 `?from=…`) precache와 어긋나는 경우를 받습니다.
+- 이 앱은 알고리즘을 실행하지도, 서버에 무엇을 보내지도 않으므로 **오프라인에서 기능이 하나도 줄지 않습니다.** 편집·자동 저장·이미지 저장이 모두 그대로 동작합니다.
+- 예외는 본문 한글 글꼴입니다. Pretendard는 CDN에서 받고 따로 캐시하지 않으므로 오프라인에서는 시스템 한글 글꼴로 대체됩니다. `dynamic-subset`은 unicode-range로 쪼개진 파일 묶음이라 일부만 캐시되면 한 문장 안에서 글꼴이 섞입니다. 전부 대체되는 편이 낫습니다.
+
+### 새 버전 적용
+
+`registerType: "prompt"`입니다. 자동으로 새로 고치지 않습니다. 수업 중에 기호를 끌거나 글자를 치는 도중 화면이 갑자기 바뀌면 하던 동작이 끊깁니다.
+
+[`src/components/UpdatePrompt.tsx`](../src/components/UpdatePrompt.tsx)가 `useRegisterSW`로 service worker를 등록하고, 새 버전이 대기 상태가 되면 `초기화`와 같은 대화상자로 한 번 묻습니다. `지금 새로 고침`을 누르면 예약된 저장을 먼저 흘려보내고(`saveNow`) 새 worker로 교체한 뒤 새로 고칩니다. 자동 저장이 있으므로 새로 고쳐도 만들던 내용은 그대로 복원됩니다.
+
+### base와 scope
+
+manifest의 `scope`·`start_url`이 Vite의 `base`와 어긋나면 **설치는 되는데 열면 404**가 나고, 원인이 화면에 드러나지 않습니다. 두 값을 따로 적지 않고 [`src/constants/pwa.ts`](../src/constants/pwa.ts)의 `buildManifest(base)`가 `base` 하나에서 만들어 냅니다. `vite.config.ts`는 `PAGES_BASE`를 `base` 계산과 manifest 양쪽에 씁니다.
+
+### 아이콘과 설치 창
+
+**Chrome은 manifest 아이콘으로 SVG를 받지 않습니다.** 파일이 정상이어도(favicon으로는 잘 동작합니다) 설치 아이콘 처리기가 불러오지 못하고, 정사각형 아이콘이 하나도 없다고 알립니다. 그래서 그림의 원본만 SVG로 두고 manifest에는 PNG를 넣습니다.
+
+| 파일                       | 쓰임                               |
+| -------------------------- | ---------------------------------- |
+| `public/icon.svg`          | favicon, 그리고 아래 두 PNG의 원본 |
+| `public/icon-maskable.svg` | `icon-maskable-512.png`의 원본     |
+| `icon-192.png`             | manifest `purpose: "any"`          |
+| `icon-512.png`             | manifest `purpose: "any"`          |
+| `icon-maskable-512.png`    | manifest `purpose: "maskable"`     |
+| `screenshot-wide.png`      | 설치 창 미리보기 (1366×768)        |
+
+PNG는 [`scripts/generate-icons.mjs`](../scripts/generate-icons.mjs)가 헤드리스 Chrome으로 SVG에서 뽑아 저장소에 함께 둡니다. 빌드에는 넣지 않습니다 — 브랜드 마크를 고쳤을 때만 손으로 한 번 돌립니다.
+
+설치 창 미리보기는 넓은 화면용(`form_factor: "wide"`)과 그 밖의 화면용이 각각 있어야 나옵니다. 이 도구는 가로 화면 전용이라 좁은 화면용 갈무리를 따로 만들 수 없으므로 같은 그림을 `form_factor` 없이 한 번 더 등록합니다. 갈무리는 오프라인에서 쓸 일이 없어 precache에서 뺍니다(`globPatterns`가 `icon-*.png`만 담습니다).
+
+iOS `apple-touch-icon`은 지원 범위 밖이라 두지 않습니다.
+
 ## 화면과 라우팅
 
 화면은 두 개이며 [`src/hooks/useHashRoute.ts`](../src/hooks/useHashRoute.ts)가 URL 해시를 읽습니다.
@@ -102,7 +142,7 @@ interface Program {
 
 ## 화면 분할과 불러오기
 
-[`src/App.tsx`](../src/App.tsx)는 상단바와 초기화 대화상자만 직접 가지고, 나머지 두 화면은 `React.lazy`로 나눠 불러옵니다. 무거운 라이브러리(`@xyflow/react`, `@codemirror/*`, `@dagrejs/dagre`)가 전부 편집 화면에만 필요하기 때문입니다. `ReactFlowProvider`도 유일한 소비자인 [`src/components/EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) 안에 둡니다.
+[`src/App.tsx`](../src/App.tsx)는 상단바와 두 대화상자(초기화·새 버전)만 직접 가지고, 나머지 두 화면은 `React.lazy`로 나눠 불러옵니다. 무거운 라이브러리(`@xyflow/react`, `@codemirror/*`, `@dagrejs/dagre`)가 전부 편집 화면에만 필요하기 때문입니다. `ReactFlowProvider`도 유일한 소비자인 [`src/components/EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) 안에 둡니다.
 
 두 화면의 불러오는 시점은 서로 다릅니다.
 
@@ -125,7 +165,8 @@ interface Program {
 | `src/components/` | CodeMirror, React Flow, 팔레트, 예제 화면 등 사용자 인터페이스 |
 | `src/store/`      | 유효한 AST와 두 편집 표현 사이의 동기화                        |
 | `src/hooks/`      | 해시 기반 화면 전환, 자동 정리되는 공통 타이머                 |
-| `src/constants/`  | 여러 모듈이 함께 쓰는 의사코드 토큰과 기호 색                  |
+| `src/constants/`  | 여러 모듈이 함께 쓰는 의사코드 토큰, 기호 색, 설치 manifest    |
+| `public/`         | 그대로 배포되는 파일 — 설치·favicon 아이콘                     |
 | `src/styles/`     | Sass 디자인 token, mixin, 레이아웃과 컴포넌트 스타일           |
 | `src/examples/`   | 학습용 예제 AST                                                |
 
@@ -134,7 +175,7 @@ interface Program {
 ## 현재 범위에 포함하지 않은 기능
 
 - 조건식 평가와 한 단계씩 실행하는 애니메이션
-- 휴대폰과 태블릿 세로 모드용 별도 레이아웃
+- 휴대폰과 태블릿 세로 모드용 별도 레이아웃(iOS 설치 아이콘 포함)
 - 다크 모드
 
 이 기능들을 추가할 때도 AST 중심 동기화와 문자열 보존 원칙을 먼저 검토해야 합니다. 특히 실행 기능은 현재의 자유로운 한국어 조건식을 평가 가능한 식 문법으로 확장해야 하므로 단순 UI 변경이 아닙니다.

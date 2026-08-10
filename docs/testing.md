@@ -66,7 +66,27 @@ parsePseudocode(astToText(program)) === program
 - `measured`·`selected`·`dragging`은 저장하지 않음
 - 깨진 JSON, 예전 버전, 모양이 어긋난 값은 무시하고 빈 화면에서 시작
 
+### `pwa.test.ts`
+
+manifest 값을 그대로 다시 적지 않고, 어긋날 수 있는 결합과 Chrome이 실제로 요구하는 조건만 검사합니다.
+
+- `scope`와 `start_url`이 Vite의 `base`를 따라감(개발 서버의 `/`까지)
+- 아이콘·갈무리 경로가 `base` 아래로 나옴
+- 아이콘이 모두 PNG이고 정사각형(Chrome은 manifest 아이콘으로 SVG를 받지 않습니다)
+- `maskable` 아이콘이 있음
+- 갈무리가 `form_factor: "wide"`와 그 밖의 화면용으로 하나씩 있음
+- `theme_color`가 `index.html`·`_tokens.scss`와 같은 값
+
+이 테스트는 선언 내용만 봅니다. 파일이 실제로 그 크기인지는 [설치와 오프라인](#설치와-오프라인) 점검에서 확인합니다.
+
 ## 변경 유형별 점검
+
+### 브랜드 마크 변경
+
+- `icon.svg`와 `icon-maskable.svg`를 함께 고쳤는가
+- `node scripts/generate-icons.mjs`로 PNG를 다시 뽑았는가
+- maskable 아이콘의 마크가 가운데 80% 안에 들어가는가
+- `App.tsx`의 `BrandMark`도 같은 그림인가
 
 ### 의사코드 문법 변경
 
@@ -112,6 +132,7 @@ parsePseudocode(astToText(program)) === program
 - 진입 chunk에 무거운 라이브러리가 딸려 들어가지 않았는가
 - `React.lazy` 경계를 옮겼다면 예제 화면을 왕복해도 편집 내용이 남는가
 - 불러오는 동안의 안내(`.workspace-loading`)가 화면 높이를 흔들지 않는가
+- 새로 추가한 파일 형식이 `workbox.globPatterns`에 들어가 오프라인에서도 받아지는가
 
 ## 브라우저 수동 회귀 점검
 
@@ -128,6 +149,18 @@ parsePseudocode(astToText(program)) === program
 9. 예제 페이지를 왕복하고 브라우저 뒤로가기를 사용해도 상태가 유지됩니다.
 10. PNG를 저장하면 모든 노드, 우회선, 라벨이 잘리지 않고 들어갑니다.
 11. body에 세로 스크롤이 생기지 않고 콘솔 오류·경고가 없습니다.
+
+### 설치와 오프라인
+
+**개발 서버는 `base`가 `/`라서 실제 scope를 검증하지 못합니다.** `pnpm build && pnpm preview`로 배포와 같은 `/algorithm-visualizer/` 경로에서 확인합니다.
+
+1. Application → Service Workers가 `activated`이고 scope가 `/algorithm-visualizer/`입니다.
+2. Application → Manifest에 **아무 경고도 없고** 주소창에 설치 버튼이 나타납니다. 아이콘과 갈무리는 이 화면에서만 실제로 불려 오므로, CDP의 `Page.getAppManifest`가 `errors: []`를 돌려주는 것은 근거가 되지 않습니다(그 명령은 파싱만 합니다). 아이콘을 SVG로 두면 여기서 `Icon … failed to load`가 납니다.
+3. Application → Cache Storage의 precache 목록에 vendor chunk와 함께 **`ExamplesPage-*.js`가 들어 있습니다.** 예제 화면에 들어간 적이 없어도 있어야 합니다. 없으면 오프라인에서 예제 화면이 빕니다.
+4. Network를 Offline으로 두고 강력 새로 고침해도 편집기·순서도·팔레트가 뜨고, 기호 추가와 연결, `#/examples`, `이미지로 저장`, 저장한 작업 복원이 모두 동작합니다.
+5. 오프라인에서 한글이 시스템 글꼴로 자연스럽게 나옵니다. 이때 Pretendard subset 요청 실패 오류가 콘솔에 뜨는 것은 의도한 동작입니다. CDN의 CSS는 브라우저 HTTP 캐시에 남아 있어 `@font-face` 규칙은 살아 있고, 화면에 그려진 글자의 subset 수만큼 요청이 실패하므로 개수는 그때그때 다릅니다. 위 [11번](#브라우저-수동-회귀-점검)의 "콘솔 오류 없음"은 온라인 기준입니다.
+6. 오프라인에서 쿼리가 붙은 주소(`…/algorithm-visualizer/?from=lms`)로 들어가도 앱이 그대로 뜹니다. 이 경로만 `navigateFallback`을 씁니다.
+7. 소스를 고쳐 다시 빌드하면 열려 있던 창에 새 버전 대화상자가 뜨고, `나중에`는 편집을 그대로 이어 가며 `지금 새로 고침`은 만들던 순서도를 위치까지 유지한 채 새 코드로 바뀝니다.
 
 터치 실기기 점검은 [UI와 터치 입력](./ui-touch.md#수동-터치-점검표)을 따릅니다.
 
@@ -146,6 +179,7 @@ parsePseudocode(astToText(program)) === program
 - 위 [기본 명령어](#기본-명령어)의 검사를 로컬에서 건너뛰어도 이 두 단계에서 걸립니다. 반대로 말하면 CI에서 걸리는 대부분은 로컬에서 `pnpm test`와 `pnpm build`로 먼저 재현할 수 있습니다.
 - `concurrency`가 `github-pages` 하나로 묶여 있고 `cancel-in-progress`가 켜져 있어, 연달아 push하면 마지막 실행만 남습니다.
 - 권한은 `contents: read`, `pages: write`, `id-token: write`로 좁혀 두었습니다.
+- 배포한 뒤 학생 화면이 바로 바뀌지는 않습니다. 이미 앱을 연 사람은 다음에 열 때 새 service worker를 받아 대화상자를 보고, 확인해야 새 코드로 바뀝니다. 급한 수정을 배포했다면 이 지연을 감안합니다.
 - 배포된 사이트는 저장소 이름 아래 경로에서 열리므로 `vite.config.ts`의 `base`가 build와 preview에서만 `/algorithm-visualizer/`가 됩니다. 개발 서버는 `/`를 그대로 씁니다.
 - 배포본에서만 리소스 경로가 깨진다면 `base`와 저장소 이름이 어긋났는지 먼저 확인하고, `pnpm preview`로 같은 `base`에서 재현합니다.
 
@@ -153,23 +187,27 @@ parsePseudocode(astToText(program)) === program
 
 이 프로젝트에는 의도적으로 여러 표현이 같은 값을 공유하는 영역이 있습니다. 다음 표의 한쪽을 바꿀 때 반대쪽도 반드시 확인합니다.
 
-| 기준             | 연결된 구현                                                                |
-| ---------------- | -------------------------------------------------------------------------- |
-| AST 문장 타입    | parser, astToText, astToFlow, flowToAst, 노드 편집 UI                      |
-| 빈 프로그램 규칙 | parser, astToText, astToFlow, flowToAst, 초기 store                        |
-| 저장 형식        | `workspaceStore` 직렬화·검증, store 초깃값, `FlowCanvas`의 `restoredGraph` |
-| 노드 실제 크기   | CSS 도형 치수, `NODE_SIZES`, dagre, edge geometry, PNG                     |
-| 판단 `yesSide`   | 자동 배치, React Flow Handle, routePoints, PNG source point                |
-| 기호 윤곽 좌표   | 팔레트 SVG, 캔버스 SVG, 저장 SVG                                           |
-| 화살표 색·굵기   | CSS 변수, React Flow marker, 저장 SVG marker                               |
-| 그래프 범위      | 자동 viewport 맞춤, PNG export bounds                                      |
-| 배포 경로        | `vite.config.ts`의 `base`, 저장소 이름, Pages 설정                         |
-| chunk 구성       | `React.lazy` 경계, `manualChunks` 목록, `package.json` 의존성              |
+| 기준             | 연결된 구현                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| AST 문장 타입    | parser, astToText, astToFlow, flowToAst, 노드 편집 UI                                                                                     |
+| 빈 프로그램 규칙 | parser, astToText, astToFlow, flowToAst, 초기 store                                                                                       |
+| 저장 형식        | `workspaceStore` 직렬화·검증, store 초깃값, `FlowCanvas`의 `restoredGraph`                                                                |
+| 노드 실제 크기   | CSS 도형 치수, `NODE_SIZES`, dagre, edge geometry, PNG                                                                                    |
+| 판단 `yesSide`   | 자동 배치, React Flow Handle, routePoints, PNG source point                                                                               |
+| 기호 윤곽 좌표   | 팔레트 SVG, 캔버스 SVG, 저장 SVG                                                                                                          |
+| 브랜드 마크      | `public/icon.svg`, `public/icon-maskable.svg`, 여기서 뽑은 `icon-*.png`, `App.tsx`의 `BrandMark`                                          |
+| 화살표 색·굵기   | CSS 변수, React Flow marker, 저장 SVG marker                                                                                              |
+| 그래프 범위      | 자동 viewport 맞춤, PNG export bounds                                                                                                     |
+| 배포 경로        | `vite.config.ts`의 `base`, `constants/pwa.ts`의 `PAGES_BASE`, manifest `scope`·`start_url`, service worker scope, 저장소 이름, Pages 설정 |
+| 앱 테마색        | `index.html`의 `theme-color`, manifest `theme_color`, `_tokens.scss`의 `--surface-page`                                                   |
+| chunk 구성       | `React.lazy` 경계, `manualChunks` 목록, `workbox.globPatterns`, `package.json` 의존성                                                     |
 
 ## 알려진 제한과 후속 작업
 
 - 실제 터치 크롬북에서 핀치, 드래그, 화면 키보드를 최종 확인해야 합니다.
+- 실제 크롬북에 설치한 뒤의 창 크기와 세로 여유를 확인해야 합니다.
 - 자동 저장은 브라우저마다 한 벌만 보관하며, 여러 작업을 이름 붙여 저장할 수는 없습니다.
+- 오프라인에서는 본문 글꼴이 Pretendard 대신 시스템 한글 글꼴로 바뀝니다.
 - 자유로운 한국어 조건식은 평가하지 않으므로 실행 애니메이션이 없습니다.
 - 휴대폰과 태블릿 세로 모드는 지원하지 않습니다.
 - 노드가 매우 많을 때의 자동 배치는 실제 수업 사례를 모아 추가로 다듬을 필요가 있습니다.
@@ -187,6 +225,7 @@ parsePseudocode(astToText(program)) === program
 - 화면 제약이나 입력 방식이 바뀌면 [UI와 터치 입력](./ui-touch.md)을 수정합니다.
 - 테스트 또는 수동 점검 절차가 바뀌면 이 문서를 수정합니다.
 - 빌드·배포 설정이나 chunk 구성이 바뀌면 이 문서의 [자동 배포](#자동-배포) 절과 [아키텍처](./architecture.md)의 화면 분할 절을 함께 수정합니다.
-- 완료된 1~7단계의 목표나 당시 산출물 기록이 잘못됐을 때만 [구현 단계 기록](./milestones/README.md)을 수정합니다. 이후의 일반 변경을 과거 milestone에 소급해 넣지 않습니다.
+- `base`, manifest, service worker 설정이 바뀌면 [아키텍처](./architecture.md#오프라인-실행과-설치)와 이 문서의 [설치와 오프라인](#설치와-오프라인) 점검을 함께 수정합니다.
+- 완료된 1~8단계의 목표나 당시 산출물 기록이 잘못됐을 때만 [구현 단계 기록](./milestones/README.md)을 수정합니다. 이후의 일반 변경을 과거 milestone에 소급해 넣지 않습니다.
 
 과거 계획을 별도 문서에 중복해서 유지하지 않습니다. `docs/`는 현재 구현과 결정의 기준이며, 중요한 결정의 이유도 결과만 남기지 말고 관련 문서에 함께 기록합니다.

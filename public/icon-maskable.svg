@@ -1,0 +1,18 @@
+<!--
+  purpose="maskable" 아이콘의 원본.
+
+  manifest에는 이 파일이 아니라 여기서 뽑은 icon-maskable-512.png가 들어갑니다
+  (Chrome은 manifest 아이콘으로 SVG를 받지 않습니다). scripts/generate-icons.mjs 참고.
+
+  배경을 가장자리까지 채우고(둥근 모서리 없음) 마크를 안전 영역(가운데 80%) 안에
+  들어가도록 줄였습니다. 원형이나 물방울 모양으로 잘려도 마크가 잘리지 않습니다.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>알고리즘 표현하기</title>
+  <rect width="32" height="32" fill="#3f6ae1" />
+  <g transform="translate(16 16) scale(0.78) translate(-16 -15.5)">
+    <rect x="9" y="4" width="14" height="7" rx="3.5" fill="#ffe066" />
+    <path d="M16 11.5v4" stroke="white" stroke-width="2" stroke-linecap="round" />
+    <path d="M16 16l6.5 5.5L16 27l-6.5-5.5z" fill="#b7e4c7" />
+  </g>
+</svg>

@@ -13,7 +13,7 @@
 | [순서도 변환과 렌더링](./flowchart.md)             | AST↔그래프 변환, 자동 배치, 검증, 화살표, PNG 저장            | 순서도 기호·연결·배치를 수정할 때  |
 | [UI와 터치 입력](./ui-touch.md)                    | 화면 구조, 마우스·터치 조작, 접근성, 크롬북 제약              | 컴포넌트나 CSS를 수정할 때         |
 | [테스트와 유지보수](./testing.md)                  | 자동 테스트, 수동 점검표, 자동 배포, 결합된 상수, 알려진 제한 | 변경을 검증하거나 배포를 준비할 때 |
-| [구현 단계 기록](./milestones/README.md)           | 1~7단계 목표, 구현 내용, 산출물과 완료 기준                   | 구현 순서와 변경 배경을 추적할 때  |
+| [구현 단계 기록](./milestones/README.md)           | 1~8단계 목표, 구현 내용, 산출물과 완료 기준                   | 구현 순서와 변경 배경을 추적할 때  |
 
 ## 권장 읽기 순서
 
@@ -48,6 +48,7 @@
 - 디자인 토큰: [`src/styles/_tokens.scss`](../src/styles/_tokens.scss)
 - 레이아웃과 컴포넌트 스타일: [`src/styles/index.scss`](../src/styles/index.scss)
 - 편집 화면 조립과 지연 불러오기 경계: [`src/components/EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx)
-- 빌드와 chunk 분할 설정: [`vite.config.ts`](../vite.config.ts)
+- 빌드·chunk 분할·service worker 설정: [`vite.config.ts`](../vite.config.ts)
+- 설치 manifest와 배포 경로: [`src/constants/pwa.ts`](../src/constants/pwa.ts)
 - 배포 워크플로: [`.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml)
 - 단계별 구현 기록: [`docs/milestones/`](./milestones/README.md)
