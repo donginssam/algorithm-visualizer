@@ -223,6 +223,16 @@ h2 {
   box-shadow: var(--shadow-lg);
 }
 
+/* 편집 화면(App.tsx의 EditorWorkspace)을 지연 불러오는 동안 보여줍니다. */
+.workspace-loading {
+  @include mixins.flex-center;
+
+  flex: 1;
+  min-height: 430px;
+  color: var(--text-muted);
+  font-weight: 800;
+}
+
 .editor-panel,
 .flow-panel {
   display: flex;

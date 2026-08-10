@@ -1,16 +1,32 @@
-import { ReactFlowProvider } from "@xyflow/react"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { CodeEditor } from "./components/CodeEditor"
-import { ExamplesPage } from "./components/ExamplesPage"
-import { FlowCanvas, type FlowCanvasHandle } from "./components/FlowCanvas"
-import { Palette, type PaletteItemKind } from "./components/Palette"
-import { SyntaxHelp } from "./components/SyntaxHelp"
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
+import type { FlowCanvasHandle } from "./components/FlowCanvas"
+import type { PaletteItemKind } from "./components/Palette"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./core/flowTypes"
 import { clearWorkspace, saveWorkspace } from "./core/workspaceStore"
 import type { Example } from "./examples"
 import { navigateTo, useHashRoute } from "./hooks/useHashRoute"
 import { useTimeout } from "./hooks/useTimeout"
 import { restoredWorkspace, useAppStore } from "./store/useAppStore"
+
+/*
+ * 편집 화면과 예제 화면을 지연 불러옵니다.
+ *
+ * 편집 화면은 @xyflow/react·@codemirror/*·@dagrejs/dagre 같은 무거운 라이브러리를
+ * 씁니다. 상단바처럼 항상 필요한 부분과 분리해 두면 그 부분만 먼저 그려지고, 무거운
+ * 코드는 그동안 따로 받아집니다.
+ */
+const EditorWorkspace = lazy(() => import("./components/EditorWorkspace"))
+const ExamplesPage = lazy(() =>
+  import("./components/ExamplesPage").then(module => ({ default: module.ExamplesPage })),
+)
+
+function WorkspaceLoading() {
+  return (
+    <div className="workspace-loading" role="status">
+      불러오는 중…
+    </div>
+  )
+}
 
 interface ExportState {
   kind: "idle" | "working" | "done" | "failed"
@@ -192,151 +208,112 @@ export default function App() {
   const showExamples = route === "examples"
 
   return (
-    <ReactFlowProvider>
-      <main className="app-shell">
-        <header className="topbar">
-          <div className="brand">
-            <BrandMark />
-            <div className="brand-copy">
-              <h1>알고리즘 표현하기</h1>
-            </div>
+    <main className="app-shell">
+      <header className="topbar">
+        <div className="brand">
+          <BrandMark />
+          <div className="brand-copy">
+            <h1>알고리즘 표현하기</h1>
           </div>
+        </div>
 
-          <div className="topbar-actions">
-            {showExamples ? (
-              <a className="btn" href="#/">
-                편집 화면으로
+        <div className="topbar-actions">
+          {showExamples ? (
+            <a className="btn" href="#/">
+              편집 화면으로
+            </a>
+          ) : (
+            <>
+              <button type="button" className="btn" onClick={() => setConfirmingReset(true)}>
+                초기화
+              </button>
+              <a className="btn" href="#/examples">
+                예제 보기
               </a>
-            ) : (
-              <>
-                <button type="button" className="btn" onClick={() => setConfirmingReset(true)}>
-                  초기화
+              <div className="export-block">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleExportPng}
+                  disabled={exportState.kind === "working"}
+                >
+                  <span aria-hidden="true">⬇</span>
+                  이미지로 저장
                 </button>
-                <a className="btn" href="#/examples">
-                  예제 보기
-                </a>
-                <div className="export-block">
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={handleExportPng}
-                    disabled={exportState.kind === "working"}
-                  >
-                    <span aria-hidden="true">⬇</span>
-                    이미지로 저장
-                  </button>
-                  <span className={`export-status ${exportState.kind}`} role="status">
-                    {exportState.message}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
-        </header>
+                <span className={`export-status ${exportState.kind}`} role="status">
+                  {exportState.message}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </header>
 
-        {/*
+      {/*
           예제 화면에서도 편집 화면을 마운트해 둡니다. 그리던 순서도가 사라지면
           안 되기 때문입니다.
         */}
-        {showExamples && <ExamplesPage onLoad={loadExample} />}
+      {showExamples && (
+        <Suspense fallback={<WorkspaceLoading />}>
+          <ExamplesPage onLoad={loadExample} />
+        </Suspense>
+      )}
 
-        <div className="editor-route" hidden={showExamples}>
-          <section className="workspace" aria-label="의사코드와 순서도 편집 공간">
-            <article className="editor-panel">
-              <div className="panel-heading">
-                <div>
-                  <span className="step-chip">
-                    <b>1</b>의사코드
-                  </span>
-                  <h2>글로 알고리즘 쓰기</h2>
-                </div>
-              </div>
-              <p className="panel-help">공백 2칸으로 들여쓰면 순서도가 자동으로 바뀝니다.</p>
-              <SyntaxHelp />
-              {graphMessage ? (
-                <div className="graph-code-message" role="status">
-                  <strong>아직 의사코드로 바꿀 수 없어요.</strong>
-                  <span>{graphMessage}</span>
-                  <small>순서도의 연결이나 기호 내용을 고치면 의사코드가 다시 나타납니다.</small>
-                </div>
-              ) : (
-                <CodeEditor value={code} error={parseError} onChange={handleCodeChange} />
-              )}
-            </article>
+      <Suspense fallback={<WorkspaceLoading />}>
+        <EditorWorkspace
+          hidden={showExamples}
+          program={program}
+          revision={revision}
+          source={source}
+          code={code}
+          parseError={parseError}
+          graphMessage={graphMessage}
+          pendingKind={pendingKind}
+          restoredGraph={RESTORED_GRAPH}
+          flowCanvasRef={flowCanvasRef}
+          onCodeChange={handleCodeChange}
+          onPendingConsumed={() => setPendingKind(null)}
+          onGraphMutation={handleFlowMutation}
+          onProgramChange={handleProgramChange}
+          onGraphMessage={setGraphMessage}
+          onGraphChange={handleGraphChange}
+          onPaletteSelect={handlePaletteSelect}
+          onPaletteDrop={handlePaletteDrop}
+        />
+      </Suspense>
 
-            <article className="flow-panel">
-              <div className="panel-heading flow-heading">
-                <div>
-                  <span className="step-chip">
-                    <b>2</b>순서도
-                  </span>
-                  <h2>기호로 알고리즘 그리기</h2>
-                </div>
-                <div className="gesture-help" aria-label="캔버스 조작법">
-                  <span>한 손가락 이동</span>
-                  <span>두 손가락 확대</span>
-                </div>
-              </div>
-              <p className="panel-help">
-                기호를 끌어다 놓고 점끼리 이으면 의사코드가 자동으로 만들어집니다.
-              </p>
-              <FlowCanvas
-                ref={flowCanvasRef}
-                program={program}
-                revision={revision}
-                source={source}
-                pendingKind={pendingKind}
-                graphMessage={graphMessage}
-                restoredGraph={RESTORED_GRAPH}
-                onPendingConsumed={() => setPendingKind(null)}
-                onGraphMutation={handleFlowMutation}
-                onProgramChange={handleProgramChange}
-                onGraphMessage={setGraphMessage}
-                onGraphChange={handleGraphChange}
-              />
-            </article>
-          </section>
-
-          <Palette
-            pendingKind={pendingKind}
-            onSelect={handlePaletteSelect}
-            onDrop={handlePaletteDrop}
-          />
-        </div>
-
-        {confirmingReset && (
+      {confirmingReset && (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onPointerDown={() => setConfirmingReset(false)}
+        >
           <div
-            className="modal-backdrop"
-            role="presentation"
-            onPointerDown={() => setConfirmingReset(false)}
+            className="node-editor-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-dialog-title"
+            onPointerDown={event => event.stopPropagation()}
+            onKeyDown={event => {
+              if (event.key === "Escape") setConfirmingReset(false)
+            }}
           >
-            <div
-              className="node-editor-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="reset-dialog-title"
-              onPointerDown={event => event.stopPropagation()}
-              onKeyDown={event => {
-                if (event.key === "Escape") setConfirmingReset(false)
-              }}
-            >
-              <h3 id="reset-dialog-title">처음부터 다시 시작할까요?</h3>
-              <p className="dialog-text">
-                지금 만든 순서도와 의사코드가 모두 지워지고, 저장해 둔 내용도 함께 사라집니다.
-                되돌릴 수 없어요.
-              </p>
-              <div className="dialog-actions">
-                <button type="button" autoFocus onClick={() => setConfirmingReset(false)}>
-                  취소
-                </button>
-                <button type="button" className="danger" onClick={handleReset}>
-                  초기화
-                </button>
-              </div>
+            <h3 id="reset-dialog-title">처음부터 다시 시작할까요?</h3>
+            <p className="dialog-text">
+              지금 만든 순서도와 의사코드가 모두 지워지고, 저장해 둔 내용도 함께 사라집니다. 되돌릴
+              수 없어요.
+            </p>
+            <div className="dialog-actions">
+              <button type="button" autoFocus onClick={() => setConfirmingReset(false)}>
+                취소
+              </button>
+              <button type="button" className="danger" onClick={handleReset}>
+                초기화
+              </button>
             </div>
           </div>
-        )}
-      </main>
-    </ReactFlowProvider>
+        </div>
+      )}
+    </main>
   )
 }

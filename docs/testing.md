@@ -104,6 +104,15 @@ parsePseudocode(astToText(program)) === program
 - 예제 화면을 왕복해도 편집 중인 내용이 남는가
 - 브라우저 뒤로가기가 동작하는가
 
+### 의존성이나 화면 구성 변경
+
+- 새 라이브러리가 편집 화면에만 필요한가, 상단바에도 필요한가
+- 편집 화면에만 필요하다면 `vite.config.ts`의 `manualChunks`에 넣을 만큼 큰가
+- `pnpm build` 출력에 500 kB 초과 경고가 생기지 않았는가
+- 진입 chunk에 무거운 라이브러리가 딸려 들어가지 않았는가
+- `React.lazy` 경계를 옮겼다면 예제 화면을 왕복해도 편집 내용이 남는가
+- 불러오는 동안의 안내(`.workspace-loading`)가 화면 높이를 흔들지 않는가
+
 ## 브라우저 수동 회귀 점검
 
 다음 시나리오를 1366×768에서 우선 확인합니다.
@@ -122,6 +131,24 @@ parsePseudocode(astToText(program)) === program
 
 터치 실기기 점검은 [UI와 터치 입력](./ui-touch.md#수동-터치-점검표)을 따릅니다.
 
+## 자동 배포
+
+[`.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml)이 `main` push와 수동 실행(`workflow_dispatch`)에서 GitHub Pages로 배포합니다.
+
+| 단계                             | 내용                                     |
+| -------------------------------- | ---------------------------------------- |
+| `pnpm install --frozen-lockfile` | lockfile을 그대로 사용해 설치            |
+| `pnpm test`                      | 실패하면 여기서 멈추고 배포하지 않습니다 |
+| `pnpm build`                     | 형식·타입 검사를 포함한 배포 빌드        |
+| `upload-pages-artifact`          | `dist`를 Pages artifact로 업로드         |
+| `deploy-pages`                   | Pages 환경에 배포                        |
+
+- 위 [기본 명령어](#기본-명령어)의 검사를 로컬에서 건너뛰어도 이 두 단계에서 걸립니다. 반대로 말하면 CI에서 걸리는 대부분은 로컬에서 `pnpm test`와 `pnpm build`로 먼저 재현할 수 있습니다.
+- `concurrency`가 `github-pages` 하나로 묶여 있고 `cancel-in-progress`가 켜져 있어, 연달아 push하면 마지막 실행만 남습니다.
+- 권한은 `contents: read`, `pages: write`, `id-token: write`로 좁혀 두었습니다.
+- 배포된 사이트는 저장소 이름 아래 경로에서 열리므로 `vite.config.ts`의 `base`가 build와 preview에서만 `/algorithm-visualizer/`가 됩니다. 개발 서버는 `/`를 그대로 씁니다.
+- 배포본에서만 리소스 경로가 깨진다면 `base`와 저장소 이름이 어긋났는지 먼저 확인하고, `pnpm preview`로 같은 `base`에서 재현합니다.
+
 ## 중요한 결합 지점
 
 이 프로젝트에는 의도적으로 여러 표현이 같은 값을 공유하는 영역이 있습니다. 다음 표의 한쪽을 바꿀 때 반대쪽도 반드시 확인합니다.
@@ -136,6 +163,8 @@ parsePseudocode(astToText(program)) === program
 | 기호 윤곽 좌표   | 팔레트 SVG, 캔버스 SVG, 저장 SVG                                           |
 | 화살표 색·굵기   | CSS 변수, React Flow marker, 저장 SVG marker                               |
 | 그래프 범위      | 자동 viewport 맞춤, PNG export bounds                                      |
+| 배포 경로        | `vite.config.ts`의 `base`, 저장소 이름, Pages 설정                         |
+| chunk 구성       | `React.lazy` 경계, `manualChunks` 목록, `package.json` 의존성              |
 
 ## 알려진 제한과 후속 작업
 
@@ -144,6 +173,7 @@ parsePseudocode(astToText(program)) === program
 - 자유로운 한국어 조건식은 평가하지 않으므로 실행 애니메이션이 없습니다.
 - 휴대폰과 태블릿 세로 모드는 지원하지 않습니다.
 - 노드가 매우 많을 때의 자동 배치는 실제 수업 사례를 모아 추가로 다듬을 필요가 있습니다.
+- chunk 분할은 첫 화면을 먼저 그리기 위한 것이고 내려받는 총량은 줄이지 않습니다. 총량을 줄이려면 라이브러리 자체를 다시 검토해야 합니다.
 - 예제와 오류 메시지는 수업 사용 결과에 따라 확장할 수 있습니다.
 
 ## 문서 유지 규칙
@@ -156,6 +186,7 @@ parsePseudocode(astToText(program)) === program
 - 그래프 규칙, 배치, 렌더링이 바뀌면 [순서도 변환과 렌더링](./flowchart.md)을 수정합니다.
 - 화면 제약이나 입력 방식이 바뀌면 [UI와 터치 입력](./ui-touch.md)을 수정합니다.
 - 테스트 또는 수동 점검 절차가 바뀌면 이 문서를 수정합니다.
-- 완료된 1~6단계의 목표나 당시 산출물 기록이 잘못됐을 때만 [구현 단계 기록](./milestones/README.md)을 수정합니다. 이후의 일반 변경을 과거 milestone에 소급해 넣지 않습니다.
+- 빌드·배포 설정이나 chunk 구성이 바뀌면 이 문서의 [자동 배포](#자동-배포) 절과 [아키텍처](./architecture.md)의 화면 분할 절을 함께 수정합니다.
+- 완료된 1~7단계의 목표나 당시 산출물 기록이 잘못됐을 때만 [구현 단계 기록](./milestones/README.md)을 수정합니다. 이후의 일반 변경을 과거 milestone에 소급해 넣지 않습니다.
 
 과거 계획을 별도 문서에 중복해서 유지하지 않습니다. `docs/`는 현재 구현과 결정의 기준이며, 중요한 결정의 이유도 결과만 남기지 말고 관련 문서에 함께 기록합니다.

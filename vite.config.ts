@@ -6,4 +6,20 @@ export default defineConfig(({ command, isPreview }) => ({
   // Keep the development server at / so the existing local workflow is unchanged.
   base: command === "build" || isPreview ? "/algorithm-visualizer/" : "/",
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-reactflow": ["@xyflow/react"],
+          "vendor-codemirror": [
+            "@codemirror/commands",
+            "@codemirror/lint",
+            "@codemirror/state",
+            "@codemirror/view",
+          ],
+          "vendor-dagre": ["@dagrejs/dagre"],
+        },
+      },
+    },
+  },
 }))

@@ -100,6 +100,23 @@ interface Program {
 
 예제 화면으로 이동해도 편집 화면은 DOM에서 제거하지 않고 `hidden`으로 감춥니다. 따라서 예제를 둘러보다가 돌아와도 편집 중인 그래프와 viewport가 유지됩니다. 브라우저 뒤로가기와 주소 공유는 해시 변경으로 동작합니다.
 
+## 화면 분할과 불러오기
+
+[`src/App.tsx`](../src/App.tsx)는 상단바와 초기화 대화상자만 직접 가지고, 나머지 두 화면은 `React.lazy`로 나눠 불러옵니다. 무거운 라이브러리(`@xyflow/react`, `@codemirror/*`, `@dagrejs/dagre`)가 전부 편집 화면에만 필요하기 때문입니다. `ReactFlowProvider`도 유일한 소비자인 [`src/components/EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) 안에 둡니다.
+
+두 화면의 불러오는 시점은 서로 다릅니다.
+
+| 화면              | 마운트 조건                       | 언제 받는가           |
+| ----------------- | --------------------------------- | --------------------- |
+| `EditorWorkspace` | 항상 마운트하고 `hidden`으로 감춤 | 첫 화면이 뜨는 즉시   |
+| `ExamplesPage`    | `#/examples`일 때만 마운트        | 예제 화면에 들어갈 때 |
+
+편집 화면을 조건부로 마운트하지 않는 것은 위 [화면과 라우팅](#화면과-라우팅)의 규칙 때문입니다. 예제 화면을 오갈 때 그리던 그래프가 사라지면 안 되므로 마운트는 유지해야 하고, 따라서 편집 화면 chunk는 첫 화면과 거의 동시에 요청됩니다.
+
+**즉 이 분할의 목적은 내려받는 총량을 줄이는 것이 아니라, 먼저 그릴 수 있는 부분을 먼저 그리는 것입니다.** 상단바는 작은 진입 chunk 하나로 그려지고 무거운 코드는 그동안 나란히 받아집니다.
+
+`vite.config.ts`의 `manualChunks`는 위 세 라이브러리를 `vendor-reactflow`·`vendor-codemirror`·`vendor-dagre`로 따로 뽑습니다. 그러지 않으면 이들이 편집 화면 chunk에 함께 들어가, 앱 코드를 한 줄만 고쳐도 해시가 바뀌어 캐시가 통째로 무효가 됩니다. 실제 chunk 구성과 크기는 `pnpm build` 출력이 기준입니다.
+
 ## 모듈 책임
 
 | 경로              | 책임                                                           |
@@ -107,7 +124,9 @@ interface Program {
 | `src/core/`       | UI와 무관한 AST, 파싱, 그래프 변환, 검증, 경로 계산, SVG 생성  |
 | `src/components/` | CodeMirror, React Flow, 팔레트, 예제 화면 등 사용자 인터페이스 |
 | `src/store/`      | 유효한 AST와 두 편집 표현 사이의 동기화                        |
-| `src/hooks/`      | 해시 기반 화면 전환                                            |
+| `src/hooks/`      | 해시 기반 화면 전환, 자동 정리되는 공통 타이머                 |
+| `src/constants/`  | 여러 모듈이 함께 쓰는 의사코드 토큰과 기호 색                  |
+| `src/styles/`     | Sass 디자인 token, mixin, 레이아웃과 컴포넌트 스타일           |
 | `src/examples/`   | 학습용 예제 AST                                                |
 
 `src/core/`는 가능한 한 DOM과 React에 의존하지 않는 순수 로직으로 유지합니다. 변환 규칙을 이 영역에 모으면 Vitest로 빠르게 검증하고 화면과 PNG에서 같은 결과를 재사용할 수 있습니다.
