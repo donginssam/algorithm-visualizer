@@ -77,22 +77,22 @@ function isNode(value: unknown): value is AlgorithmFlowNode {
   if (!isObject(value)) return false
   const position = value.position
   return (
-    typeof value.id === "string"
-    && isObject(position)
-    && typeof position.x === "number"
-    && typeof position.y === "number"
-    && isObject(value.data)
-    && typeof value.data.kind === "string"
-    && typeof value.data.label === "string"
+    typeof value.id === "string" &&
+    isObject(position) &&
+    typeof position.x === "number" &&
+    typeof position.y === "number" &&
+    isObject(value.data) &&
+    typeof value.data.kind === "string" &&
+    typeof value.data.label === "string"
   )
 }
 
 function isEdge(value: unknown): value is AlgorithmFlowEdge {
   return (
-    isObject(value)
-    && typeof value.id === "string"
-    && typeof value.source === "string"
-    && typeof value.target === "string"
+    isObject(value) &&
+    typeof value.id === "string" &&
+    typeof value.source === "string" &&
+    typeof value.target === "string"
   )
 }
 
@@ -115,7 +115,8 @@ export function parseWorkspace(raw: string | null): Workspace | null {
   if (!isObject(parsed) || parsed.version !== VERSION) return null
   if (typeof parsed.code !== "string") return null
   if (!isObject(parsed.program) || !Array.isArray(parsed.program.body)) return null
-  if (parsed.source !== "example" && parsed.source !== "text" && parsed.source !== "flow") return null
+  if (parsed.source !== "example" && parsed.source !== "text" && parsed.source !== "flow")
+    return null
   if (!Array.isArray(parsed.nodes) || !parsed.nodes.every(isNode)) return null
   if (!Array.isArray(parsed.edges) || !parsed.edges.every(isEdge)) return null
 

@@ -1,3 +1,4 @@
+import { ASSIGN_GLYPH, INPUT_PREFIX, OUTPUT_PREFIX } from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
 
 function statementLines(statement: Statement, depth: number): string[] {
@@ -5,11 +6,11 @@ function statementLines(statement: Statement, depth: number): string[] {
 
   switch (statement.type) {
     case "assign":
-      return [`${indent}${statement.target} ← ${statement.expr}`]
+      return [`${indent}${statement.target} ${ASSIGN_GLYPH} ${statement.expr}`]
     case "input":
-      return [`${indent}입력: ${statement.variable}`]
+      return [`${indent}${INPUT_PREFIX}${statement.variable}`]
     case "output":
-      return [`${indent}출력: ${statement.expr}`]
+      return [`${indent}${OUTPUT_PREFIX}${statement.expr}`]
     case "loop":
       return [
         `${indent}[${statement.condition} 반복]`,
@@ -35,5 +36,7 @@ export function astToText(program: Program): string {
   // 순서도도 같은 규칙으로 '시작' 기호만 그립니다(core/astToFlow.ts).
   if (program.body.length === 0) return "시작"
 
-  return ["시작", ...program.body.flatMap(statement => statementLines(statement, 1)), "끝"].join("\n")
+  return ["시작", ...program.body.flatMap(statement => statementLines(statement, 1)), "끝"].join(
+    "\n",
+  )
 }

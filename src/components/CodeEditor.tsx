@@ -11,6 +11,7 @@ import {
   placeholder,
 } from "@codemirror/view"
 import { useEffect, useRef } from "react"
+import { PSEUDOCODE_SYMBOLS } from "../constants/pseudocode"
 import type { PseudocodeParseError } from "../core/parser"
 import { normalizeSymbols } from "../core/parser"
 
@@ -19,8 +20,6 @@ interface CodeEditorProps {
   error: PseudocodeParseError | null
   onChange: (value: string) => void
 }
-
-const symbolButtons = ["←", "×", "÷"] as const
 
 export function CodeEditor({ value, error, onChange }: CodeEditorProps) {
   const hostRef = useRef<HTMLDivElement>(null)
@@ -139,8 +138,13 @@ export function CodeEditor({ value, error, onChange }: CodeEditorProps) {
     <div className="code-editor-shell">
       <div className="symbol-toolbar" aria-label="교과서 기호 입력">
         <span>기호 입력</span>
-        {symbolButtons.map(symbol => (
-          <button key={symbol} type="button" onClick={() => insertSymbol(symbol)} aria-label={`${symbol} 기호 입력`}>
+        {PSEUDOCODE_SYMBOLS.map(symbol => (
+          <button
+            key={symbol}
+            type="button"
+            onClick={() => insertSymbol(symbol)}
+            aria-label={`${symbol} 기호 입력`}
+          >
             {symbol}
           </button>
         ))}

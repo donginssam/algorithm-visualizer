@@ -95,7 +95,9 @@ describe("AST와 순서도 그래프 변환", () => {
       const right = left + sizes.decision.width
       const middle = decision.position.y + sizes.decision.height / 2
       const branches = graph.edges.filter(
-        edge => edge.source === decision.id && (edge.data?.branch === "yes" || edge.data?.branch === "no"),
+        edge =>
+          edge.source === decision.id &&
+          (edge.data?.branch === "yes" || edge.data?.branch === "no"),
       )
       expect(branches).toHaveLength(2)
 
@@ -160,23 +162,33 @@ describe("AST와 순서도 그래프 변환", () => {
       const bottom = top + size.height
 
       if (Math.abs(start.x - end.x) < 0.01) {
-        return start.x > left && start.x < right
-          && Math.max(start.y, end.y) > top
-          && Math.min(start.y, end.y) < bottom
+        return (
+          start.x > left &&
+          start.x < right &&
+          Math.max(start.y, end.y) > top &&
+          Math.min(start.y, end.y) < bottom
+        )
       }
       if (Math.abs(start.y - end.y) < 0.01) {
-        return start.y > top && start.y < bottom
-          && Math.max(start.x, end.x) > left
-          && Math.min(start.x, end.x) < right
+        return (
+          start.y > top &&
+          start.y < bottom &&
+          Math.max(start.x, end.x) > left &&
+          Math.min(start.x, end.x) < right
+        )
       }
       return true
     }
 
     for (const edge of graph.edges) {
       const points = edge.data?.routePoints ?? []
-      const otherNodes = graph.nodes.filter(node => node.id !== edge.source && node.id !== edge.target)
+      const otherNodes = graph.nodes.filter(
+        node => node.id !== edge.source && node.id !== edge.target,
+      )
       for (let index = 1; index < points.length; index += 1) {
-        expect(otherNodes.some(node => crossesInterior(points[index - 1], points[index], node))).toBe(false)
+        expect(
+          otherNodes.some(node => crossesInterior(points[index - 1], points[index], node)),
+        ).toBe(false)
       }
     }
   })

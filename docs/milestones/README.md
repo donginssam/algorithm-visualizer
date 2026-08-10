@@ -6,14 +6,14 @@
 
 ## 단계 목록
 
-| 단계 | 상태 | 핵심 결과 |
-| --- | --- | --- |
-| [1단계 — 프로젝트 설정과 AST](./01-project-setup-and-ast.md) | 완료 | React·TypeScript·Vite 설정, AST, 예제 데이터 |
-| [2단계 — AST에서 순서도 생성](./02-ast-to-flowchart.md) | 완료 | 커스텀 기호, 그래프 변환, dagre 자동 배치 |
-| [3단계 — 의사코드 파서](./03-pseudocode-parser.md) | 완료 | 들여쓰기 파서, 오류 위치, CodeMirror 입력 |
-| [4단계 — 의사코드 생성기](./04-pseudocode-generator.md) | 완료 | AST→텍스트, 표준 출력, 왕복 테스트 |
-| [5단계 — 순서도 직접 편집](./05-flowchart-editing.md) | 완료 | 마우스·터치 편집, 그래프→AST, 구조 검증 |
-| [6단계 — 교육용 마무리](./06-education-polish.md) | 완료 | UI 정리, 예제·도움말, PNG 저장, 시각 회귀 수정 |
+| 단계                                                         | 상태 | 핵심 결과                                      |
+| ------------------------------------------------------------ | ---- | ---------------------------------------------- |
+| [1단계 — 프로젝트 설정과 AST](./01-project-setup-and-ast.md) | 완료 | React·TypeScript·Vite 설정, AST, 예제 데이터   |
+| [2단계 — AST에서 순서도 생성](./02-ast-to-flowchart.md)      | 완료 | 커스텀 기호, 그래프 변환, dagre 자동 배치      |
+| [3단계 — 의사코드 파서](./03-pseudocode-parser.md)           | 완료 | 들여쓰기 파서, 오류 위치, CodeMirror 입력      |
+| [4단계 — 의사코드 생성기](./04-pseudocode-generator.md)      | 완료 | AST→텍스트, 표준 출력, 왕복 테스트             |
+| [5단계 — 순서도 직접 편집](./05-flowchart-editing.md)        | 완료 | 마우스·터치 편집, 그래프→AST, 구조 검증        |
+| [6단계 — 교육용 마무리](./06-education-polish.md)            | 완료 | UI 정리, 예제·도움말, PNG 저장, 시각 회귀 수정 |
 
 ## 단계 간 의존 관계
 
@@ -34,4 +34,3 @@ flowchart LR
 - [의사코드와 AST](../pseudocode.md)
 - [순서도 기호 규칙](../flowchart-symbols.md)
 - [테스트와 유지보수](../testing.md)
-

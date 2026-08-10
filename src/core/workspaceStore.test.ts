@@ -90,13 +90,22 @@ describe("작업 내용 저장", () => {
     ["빈 값", null],
     ["글자가 아닌 JSON", "[]"],
     ["깨진 JSON", "{"],
-    ["예전 버전", '{"version":0,"code":"시작","program":{"body":[]},"source":"flow","nodes":[],"edges":[]}'],
-    ["노드가 배열이 아님", '{"version":1,"code":"시작","program":{"body":[]},"source":"flow","nodes":{},"edges":[]}'],
+    [
+      "예전 버전",
+      '{"version":0,"code":"시작","program":{"body":[]},"source":"flow","nodes":[],"edges":[]}',
+    ],
+    [
+      "노드가 배열이 아님",
+      '{"version":1,"code":"시작","program":{"body":[]},"source":"flow","nodes":{},"edges":[]}',
+    ],
     [
       "노드에 위치가 없음",
       '{"version":1,"code":"시작","program":{"body":[]},"source":"flow","nodes":[{"id":"a","data":{"kind":"process","label":"값"}}],"edges":[]}',
     ],
-    ["출처가 이상함", '{"version":1,"code":"시작","program":{"body":[]},"source":"???","nodes":[],"edges":[]}'],
+    [
+      "출처가 이상함",
+      '{"version":1,"code":"시작","program":{"body":[]},"source":"???","nodes":[],"edges":[]}',
+    ],
   ])("%s는 무시하고 빈 화면에서 시작한다", (_name, raw) => {
     expect(parseWorkspace(raw)).toBeNull()
   })

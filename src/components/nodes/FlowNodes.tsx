@@ -2,6 +2,7 @@ import { createContext, useContext, type ReactNode } from "react"
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
 import { oppositeSide, yesSideOf } from "../../core/astToFlow"
 import type { AlgorithmFlowNode, DecisionSide } from "../../core/flowTypes"
+import { SHAPE_OUTLINE_POINTS } from "../../core/shapeGeometry"
 
 export interface NodeActions {
   edit: (id: string) => void
@@ -10,7 +11,15 @@ export interface NodeActions {
 
 export const NodeActionContext = createContext<NodeActions | null>(null)
 
-function ActionToolbar({ id, selected, canEdit = true }: { id: string; selected: boolean; canEdit?: boolean }) {
+function ActionToolbar({
+  id,
+  selected,
+  canEdit = true,
+}: {
+  id: string
+  selected: boolean
+  canEdit?: boolean
+}) {
   const actions = useContext(NodeActionContext)
   if (!actions) return null
 
@@ -29,11 +38,25 @@ function ActionToolbar({ id, selected, canEdit = true }: { id: string; selected:
 }
 
 function TargetHandle() {
-  return <Handle id="target" type="target" position={Position.Top} className="large-handle target-handle" />
+  return (
+    <Handle
+      id="target"
+      type="target"
+      position={Position.Top}
+      className="large-handle target-handle"
+    />
+  )
 }
 
 function NextHandle() {
-  return <Handle id="next" type="source" position={Position.Bottom} className="large-handle source-handle" />
+  return (
+    <Handle
+      id="next"
+      type="source"
+      position={Position.Bottom}
+      className="large-handle source-handle"
+    />
+  )
 }
 
 /**
@@ -43,9 +66,13 @@ function NextHandle() {
  * 네 변에 선이 남지 않는다. 도형을 SVG로 그리면 네 변 모두 테두리가 생기고,
  * PNG로 저장할 때 만드는 도형(core/flowToSvg.ts)과도 모양이 정확히 같아진다.
  */
+function outlineToViewBox(points: (typeof SHAPE_OUTLINE_POINTS)["io"]): string {
+  return points.map(([x, y]) => `${x * 100},${y * 100}`).join(" ")
+}
+
 const SHAPE_OUTLINES = {
-  io: "14,0 100,0 86,100 0,100",
-  decision: "50,0 100,50 50,100 0,50",
+  io: outlineToViewBox(SHAPE_OUTLINE_POINTS.io),
+  decision: outlineToViewBox(SHAPE_OUTLINE_POINTS.decision),
 } as const
 
 function Shape({
@@ -80,7 +107,9 @@ export function TerminalNode({ id, data, selected }: NodeProps<AlgorithmFlowNode
     <div className="node-frame">
       <ActionToolbar id={id} selected={selected} />
       {!isStart && <TargetHandle />}
-      <Shape className="terminal-shape"><span>{data.label}</span></Shape>
+      <Shape className="terminal-shape">
+        <span>{data.label}</span>
+      </Shape>
       {isStart && <NextHandle />}
     </div>
   )
@@ -91,7 +120,9 @@ export function IoNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>) {
     <div className="node-frame">
       <ActionToolbar id={id} selected={selected} />
       <TargetHandle />
-      <Shape className="io-shape" outline={SHAPE_OUTLINES.io}><span>{data.label}</span></Shape>
+      <Shape className="io-shape" outline={SHAPE_OUTLINES.io}>
+        <span>{data.label}</span>
+      </Shape>
       <NextHandle />
     </div>
   )
@@ -102,7 +133,9 @@ export function ProcessNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>
     <div className="node-frame">
       <ActionToolbar id={id} selected={selected} />
       <TargetHandle />
-      <Shape className="process-shape"><span>{data.label}</span></Shape>
+      <Shape className="process-shape">
+        <span>{data.label}</span>
+      </Shape>
       <NextHandle />
     </div>
   )
@@ -115,7 +148,15 @@ export function ProcessNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>
  * 반대편에 있을 때 선이 엇갈려 예/아니오를 구분할 수 없습니다. 어느 쪽으로
  * 내보낼지는 자동 배치기가 정합니다(core/astToFlow.ts).
  */
-function BranchHandle({ id, side, caption }: { id: "yes" | "no"; side: DecisionSide; caption: string }) {
+function BranchHandle({
+  id,
+  side,
+  caption,
+}: {
+  id: "yes" | "no"
+  side: DecisionSide
+  caption: string
+}) {
   return (
     <>
       <span className={`handle-caption handle-caption-${side}`}>{caption}</span>

@@ -15,14 +15,14 @@
 끝
 ```
 
-| 구문 | 입력 형식 | AST |
-| --- | --- | --- |
-| 대입·처리 | `변수 ← 식` | `{ type: "assign", target, expr }` |
-| 입력 | `입력: 변수` 또는 `변수 입력` | `{ type: "input", variable }` |
-| 출력 | `출력: 식` 또는 `식 출력` | `{ type: "output", expr }` |
-| 반복 | `[조건 반복]` + 들여쓴 본문 | `{ type: "loop", condition, body }` |
-| 조건 분기 | `[만약 조건]` + 들여쓴 본문 | `{ type: "if", condition, thenBody, elseBody }` |
-| 다른 경우 | `[아니면]` + 들여쓴 본문 | `if.elseBody` |
+| 구문      | 입력 형식                     | AST                                             |
+| --------- | ----------------------------- | ----------------------------------------------- |
+| 대입·처리 | `변수 ← 식`                   | `{ type: "assign", target, expr }`              |
+| 입력      | `입력: 변수` 또는 `변수 입력` | `{ type: "input", variable }`                   |
+| 출력      | `출력: 식` 또는 `식 출력`     | `{ type: "output", expr }`                      |
+| 반복      | `[조건 반복]` + 들여쓴 본문   | `{ type: "loop", condition, body }`             |
+| 조건 분기 | `[만약 조건]` + 들여쓴 본문   | `{ type: "if", condition, thenBody, elseBody }` |
+| 다른 경우 | `[아니면]` + 들여쓴 본문      | `if.elseBody`                                   |
 
 `[만약 ...]` 안의 조건은 특정 조사나 어미를 강제하지 않습니다. 예를 들어 `[만약 수가 짝수이면]`을 읽으면 `condition`에는 `수가 짝수이면`이 그대로 저장됩니다. 생성기도 같은 문자열을 `[만약 ${condition}]` 형식으로 출력합니다.
 
@@ -60,12 +60,7 @@ export interface IfNode {
   elseBody: Statement[]
 }
 
-export type Statement =
-  | AssignNode
-  | InputNode
-  | OutputNode
-  | LoopNode
-  | IfNode
+export type Statement = AssignNode | InputNode | OutputNode | LoopNode | IfNode
 
 export interface Program {
   body: Statement[]
@@ -74,18 +69,18 @@ export interface Program {
 
 ### 필드 의미
 
-| 타입 | 필드 | 의미 |
-| --- | --- | --- |
-| `AssignNode` | `target` | 값을 저장할 변수 이름 |
-| `AssignNode` | `expr` | 저장할 값 또는 계산식 |
-| `InputNode` | `variable` | 입력받을 변수 이름 |
-| `OutputNode` | `expr` | 출력할 값 또는 식 |
-| `LoopNode` | `condition` | `반복` 표기를 제외한 조건 문자열 |
-| `LoopNode` | `body` | 조건이 참일 때 실행하고 판단으로 돌아갈 문장 목록 |
-| `IfNode` | `condition` | `만약` 표기를 제외한 판단 조건 문자열 |
-| `IfNode` | `thenBody` | `예` 흐름의 문장 목록 |
-| `IfNode` | `elseBody` | `아니오` 흐름의 문장 목록. `[아니면]`이 없으면 빈 배열 |
-| `Program` | `body` | 시작과 끝 사이의 최상위 문장 목록 |
+| 타입         | 필드        | 의미                                                   |
+| ------------ | ----------- | ------------------------------------------------------ |
+| `AssignNode` | `target`    | 값을 저장할 변수 이름                                  |
+| `AssignNode` | `expr`      | 저장할 값 또는 계산식                                  |
+| `InputNode`  | `variable`  | 입력받을 변수 이름                                     |
+| `OutputNode` | `expr`      | 출력할 값 또는 식                                      |
+| `LoopNode`   | `condition` | `반복` 표기를 제외한 조건 문자열                       |
+| `LoopNode`   | `body`      | 조건이 참일 때 실행하고 판단으로 돌아갈 문장 목록      |
+| `IfNode`     | `condition` | `만약` 표기를 제외한 판단 조건 문자열                  |
+| `IfNode`     | `thenBody`  | `예` 흐름의 문장 목록                                  |
+| `IfNode`     | `elseBody`  | `아니오` 흐름의 문장 목록. `[아니면]`이 없으면 빈 배열 |
+| `Program`    | `body`      | 시작과 끝 사이의 최상위 문장 목록                      |
 
 `시작`과 `끝`은 AST 노드가 아닙니다. 모든 알고리즘의 경계로 간주하여 `Program`에 암묵적으로 포함하고, 의사코드나 순서도로 변환할 때 자동으로 표현합니다.
 
@@ -136,9 +131,9 @@ const program: Program = {
 `normalizeSymbols`는 키보드로 입력하기 쉬운 문자를 교과서 표기로 바꿉니다.
 
 | 입력 | 저장·표시 |
-| --- | --- |
-| `<-` | `←` |
-| `*` | `×` |
+| ---- | --------- |
+| `<-` | `←`       |
+| `*`  | `×`       |
 
 정규화는 파서와 CodeMirror 입력 양쪽에서 적용합니다. [`src/components/CodeEditor.tsx`](../src/components/CodeEditor.tsx)는 변환 후에도 커서 위치가 자연스럽게 유지되도록 변환 전 문자열의 선택 영역을 다시 계산합니다. `←`, `×`, `÷`는 편집기와 노드 대화상자의 기호 버튼으로도 입력할 수 있습니다.
 

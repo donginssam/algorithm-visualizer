@@ -76,13 +76,13 @@ dagre와 화살표 경로는 DOM이 그려지기 전에도 노드 경계를 알�
 
 ## 주요 산출물
 
-| 파일 | 역할 |
-| --- | --- |
-| `src/core/flowTypes.ts` | 그래프 노드·엣지 데이터 타입 |
-| `src/core/astToFlow.ts` | AST→그래프 변환과 dagre 배치 |
-| `src/components/FlowCanvas.tsx` | React Flow 캔버스 |
-| `src/components/nodes/FlowNodes.tsx` | 커스텀 기호 컴포넌트 |
-| `src/components/FlowEdges.tsx` | 커스텀 화살표 렌더링 |
+| 파일                                 | 역할                         |
+| ------------------------------------ | ---------------------------- |
+| `src/core/flowTypes.ts`              | 그래프 노드·엣지 데이터 타입 |
+| `src/core/astToFlow.ts`              | AST→그래프 변환과 dagre 배치 |
+| `src/components/FlowCanvas.tsx`      | React Flow 캔버스            |
+| `src/components/nodes/FlowNodes.tsx` | 커스텀 기호 컴포넌트         |
+| `src/components/FlowEdges.tsx`       | 커스텀 화살표 렌더링         |
 
 ## 완료 기준
 

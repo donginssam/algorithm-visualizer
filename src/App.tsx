@@ -9,6 +9,7 @@ import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./core/flowTypes"
 import { clearWorkspace, saveWorkspace } from "./core/workspaceStore"
 import type { Example } from "./examples"
 import { navigateTo, useHashRoute } from "./hooks/useHashRoute"
+import { useTimeout } from "./hooks/useTimeout"
 import { restoredWorkspace, useAppStore } from "./store/useAppStore"
 
 interface ExportState {
@@ -20,6 +21,8 @@ const IDLE_EXPORT: ExportState = { kind: "idle", message: "" }
 
 /** 작업 내용을 저장하기까지 기다리는 시간. 글자·기호를 이어서 다룰 때 매번 쓰지 않습니다. */
 const SAVE_DELAY = 400
+const CODE_COMMIT_DELAY = 300
+const EXPORT_STATUS_DURATION = 4000
 
 /** 저장해 둔 순서도. 화면을 만들기 전에 정해지므로 다시 그려도 바뀌지 않습니다. */
 const RESTORED_GRAPH = restoredWorkspace
@@ -72,9 +75,9 @@ export default function App() {
   const [pendingKind, setPendingKind] = useState<PaletteItemKind | null>(null)
   const [exportState, setExportState] = useState<ExportState>(IDLE_EXPORT)
   const [confirmingReset, setConfirmingReset] = useState(false)
-  const debounceRef = useRef<number | null>(null)
-  const exportTimerRef = useRef<number | null>(null)
-  const saveTimerRef = useRef<number | null>(null)
+  const { clear: clearCodeCommit, schedule: scheduleCodeCommit } = useTimeout()
+  const { clear: clearExportStatus, schedule: scheduleExportStatus } = useTimeout()
+  const { clear: clearSave, schedule: scheduleSave } = useTimeout()
   const graphRef = useRef<{ nodes: AlgorithmFlowNode[]; edges: AlgorithmFlowEdge[] }>(
     RESTORED_GRAPH ?? { nodes: [], edges: [] },
   )
@@ -88,11 +91,12 @@ export default function App() {
    * 있어 AST로 바꿀 수 없는데, 그 상태야말로 잃어버리면 안 되기 때문입니다.
    */
   const saveNow = useCallback(() => {
-    if (saveTimerRef.current !== null) {
-      window.clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
-    const { code: latestCode, program: latestProgram, source: latestSource } = useAppStore.getState()
+    clearSave()
+    const {
+      code: latestCode,
+      program: latestProgram,
+      source: latestSource,
+    } = useAppStore.getState()
     saveWorkspace({
       code: latestCode,
       program: latestProgram,
@@ -100,12 +104,11 @@ export default function App() {
       nodes: graphRef.current.nodes,
       edges: graphRef.current.edges,
     })
-  }, [])
+  }, [clearSave])
 
   const saveSoon = useCallback(() => {
-    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = window.setTimeout(saveNow, SAVE_DELAY)
-  }, [saveNow])
+    scheduleSave(saveNow, SAVE_DELAY)
+  }, [saveNow, scheduleSave])
 
   const handleGraphChange = useCallback(
     (nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]) => {
@@ -126,20 +129,13 @@ export default function App() {
     return () => window.removeEventListener("pagehide", saveNow)
   }, [saveNow])
 
-  useEffect(() => () => {
-    if (debounceRef.current !== null) window.clearTimeout(debounceRef.current)
-    if (exportTimerRef.current !== null) window.clearTimeout(exportTimerRef.current)
-    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
-  }, [])
-
-  const handleCodeChange = useCallback((nextCode: string) => {
-    updateCodeDraft(nextCode)
-    if (debounceRef.current !== null) window.clearTimeout(debounceRef.current)
-    debounceRef.current = window.setTimeout(() => {
-      debounceRef.current = null
-      commitCode(nextCode)
-    }, 300)
-  }, [commitCode, updateCodeDraft])
+  const handleCodeChange = useCallback(
+    (nextCode: string) => {
+      updateCodeDraft(nextCode)
+      scheduleCodeCommit(() => commitCode(nextCode), CODE_COMMIT_DELAY)
+    },
+    [commitCode, scheduleCodeCommit, updateCodeDraft],
+  )
 
   const handleProgramChange = useCallback(
     (nextProgram: typeof program) => setProgram(nextProgram, "flow"),
@@ -147,23 +143,19 @@ export default function App() {
   )
 
   const handleFlowMutation = useCallback(() => {
-    if (debounceRef.current !== null) {
-      window.clearTimeout(debounceRef.current)
-      debounceRef.current = null
-    }
+    clearCodeCommit()
     beginFlowEdit()
-  }, [beginFlowEdit])
+  }, [beginFlowEdit, clearCodeCommit])
 
   const loadExample = (example: Example) => {
-    if (debounceRef.current !== null) window.clearTimeout(debounceRef.current)
-    debounceRef.current = null
+    clearCodeCommit()
     setPendingKind(null)
     setProgram(example.program, "example")
     navigateTo("editor")
   }
 
   const handlePaletteSelect = (kind: PaletteItemKind) => {
-    setPendingKind(current => current === kind ? null : kind)
+    setPendingKind(current => (current === kind ? null : kind))
   }
 
   const handlePaletteDrop = (kind: PaletteItemKind, clientX: number, clientY: number) => {
@@ -172,15 +164,9 @@ export default function App() {
   }
 
   const handleReset = () => {
-    if (debounceRef.current !== null) {
-      window.clearTimeout(debounceRef.current)
-      debounceRef.current = null
-    }
+    clearCodeCommit()
     // 예약해 둔 저장이 방금 지운 내용을 되살리지 않도록 먼저 끕니다.
-    if (saveTimerRef.current !== null) {
-      window.clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
+    clearSave()
     graphRef.current = { nodes: [], edges: [] }
     clearWorkspace()
     setPendingKind(null)
@@ -189,10 +175,7 @@ export default function App() {
   }
 
   const handleExportPng = async () => {
-    if (exportTimerRef.current !== null) {
-      window.clearTimeout(exportTimerRef.current)
-      exportTimerRef.current = null
-    }
+    clearExportStatus()
     setExportState({ kind: "working", message: "저장 중…" })
 
     try {
@@ -203,10 +186,7 @@ export default function App() {
       setExportState({ kind: "failed", message })
     }
 
-    exportTimerRef.current = window.setTimeout(() => {
-      exportTimerRef.current = null
-      setExportState(IDLE_EXPORT)
-    }, 4000)
+    scheduleExportStatus(() => setExportState(IDLE_EXPORT), EXPORT_STATUS_DURATION)
   }
 
   const showExamples = route === "examples"

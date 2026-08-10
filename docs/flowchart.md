@@ -6,14 +6,14 @@
 
 순서도는 React Flow의 노드와 엣지를 확장한 타입을 사용합니다. 정의는 [`src/core/flowTypes.ts`](../src/core/flowTypes.ts)에 있습니다.
 
-| `kind` | 의미 | 화면 기호 | AST 대응 |
-| --- | --- | --- | --- |
-| `terminal` | 시작·끝 | 둥근 사각형 | `Program` 경계 |
-| `input` | 입력 | 평행사변형 | `input` |
-| `output` | 출력 | 평행사변형 | `output` |
-| `process` | 대입·계산 | 직사각형 | `assign` |
-| `decision` | 반복·조건 | 마름모 | `loop`, `if` |
-| `junction` | 조건 분기 합류 | 작은 원 | AST에는 노출되지 않음 |
+| `kind`     | 의미           | 화면 기호   | AST 대응              |
+| ---------- | -------------- | ----------- | --------------------- |
+| `terminal` | 시작·끝        | 둥근 사각형 | `Program` 경계        |
+| `input`    | 입력           | 평행사변형  | `input`               |
+| `output`   | 출력           | 평행사변형  | `output`              |
+| `process`  | 대입·계산      | 직사각형    | `assign`              |
+| `decision` | 반복·조건      | 마름모      | `loop`, `if`          |
+| `junction` | 조건 분기 합류 | 작은 원     | AST에는 노출되지 않음 |
 
 판단 노드에는 `controlKind`가 있어 반복과 조건을 구분하고, `yesSide`가 `예` 화살표의 좌우 방향을 기록합니다. 엣지의 `branch`는 `next`, `yes`, `no`, `loop-back` 중 하나입니다.
 
@@ -124,10 +124,10 @@ marginy = 28
 
 ## 함께 변경해야 하는 값
 
-| 변경 항목 | 함께 확인할 곳 |
-| --- | --- |
-| 노드 크기 | `astToFlow.ts`의 `NODE_SIZES`, `index.css`의 도형 치수, SVG 출력과 경로 테스트 |
-| 기호 색상·윤곽선 | `index.css`, `FlowNodes.tsx`, `Palette.tsx`, `flowToSvg.ts` |
-| 일반·반복 화살표 색 | `index.css`, `astToFlow.ts`, `flowToSvg.ts` |
-| 화살표 굵기·화살촉 | CSS `--edge-width`, `ARROW_MARKER_SIZE`, SVG marker 크기 |
-| 판단 좌우 연결 | `yesSide`, 노드 Handle, 경로 생성, SVG source point |
+| 변경 항목           | 함께 확인할 곳                                                                         |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| 노드 크기           | `astToFlow.ts`의 `NODE_SIZES`, `styles/index.scss`의 도형 치수, SVG 출력과 경로 테스트 |
+| 기호 색상·윤곽선    | `styles/_tokens.scss`, `FlowNodes.tsx`, `Palette.tsx`, `flowToSvg.ts`                  |
+| 일반·반복 화살표 색 | `styles/_tokens.scss`, `astToFlow.ts`, `flowToSvg.ts`                                  |
+| 화살표 굵기·화살촉  | CSS `--edge-width`, `ARROW_MARKER_SIZE`, SVG marker 크기                               |
+| 판단 좌우 연결      | `yesSide`, 노드 Handle, 경로 생성, SVG source point                                    |

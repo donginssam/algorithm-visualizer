@@ -1,4 +1,6 @@
-.prettierrc
 .claude
 .codex
 .DS_Store
+coverage
+dist
+pnpm-lock.yaml

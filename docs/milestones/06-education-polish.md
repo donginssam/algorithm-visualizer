@@ -10,7 +10,7 @@
 
 ### 화면 디자인과 레이아웃
 
-[`src/index.css`](../../src/index.css)에 디자인 token을 정의하고 화면을 밝은 학습 도구 분위기로 정리했습니다.
+[`src/styles/_tokens.scss`](../../src/styles/_tokens.scss)에 디자인 token을 정의하고 화면을 밝은 학습 도구 분위기로 정리했습니다.
 
 - 표면, 테두리, 글자, accent, 상태색을 CSS custom properties로 관리합니다.
 - 간격, 모서리, 그림자, focus ring과 `--touch-min`을 공통 token으로 관리합니다.
@@ -126,7 +126,7 @@ React Flow의 `fitView`가 감춰진 캔버스와 연속 예제 변경에서 오
 
 | 파일                              | 역할                                     |
 | --------------------------------- | ---------------------------------------- |
-| `src/index.css`                   | 디자인 token, 레이아웃, 터치·기호 스타일 |
+| `src/styles/`                     | 디자인 token, 레이아웃, 터치·기호 스타일 |
 | `src/components/SyntaxHelp.tsx`   | 겹쳐 표시하는 문법 도움말                |
 | `src/components/ExamplesPage.tsx` | 예제 카드와 SVG 미리보기                 |
 | `src/hooks/useHashRoute.ts`       | `#/`, `#/examples` 화면 전환             |

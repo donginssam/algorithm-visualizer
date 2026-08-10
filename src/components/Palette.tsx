@@ -1,10 +1,6 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 
-export type PaletteItemKind =
-  | "terminal"
-  | "io"
-  | "process"
-  | "decision"
+export type PaletteItemKind = "terminal" | "io" | "process" | "decision"
 
 interface PaletteProps {
   pendingKind: PaletteItemKind | null
@@ -42,9 +38,7 @@ function PaletteFigure({ kind }: { kind: PaletteItemKind }) {
       {kind === "process" && (
         <rect x="1" y="6" width="74" height="30" rx="3" vectorEffect="non-scaling-stroke" />
       )}
-      {kind === "io" && (
-        <polygon points="11,6 75,6 65,36 1,36" vectorEffect="non-scaling-stroke" />
-      )}
+      {kind === "io" && <polygon points="11,6 75,6 65,36 1,36" vectorEffect="non-scaling-stroke" />}
       {kind === "decision" && (
         <polygon points="38,1 75,21 38,41 1,21" vectorEffect="non-scaling-stroke" />
       )}
@@ -65,7 +59,10 @@ export function Palette({ pendingKind, onSelect, onDrop }: PaletteProps) {
   const dragRef = useRef<DragState | null>(null)
   const [preview, setPreview] = useState<DragState | null>(null)
 
-  const handlePointerDown = (kind: PaletteItemKind, event: ReactPointerEvent<HTMLButtonElement>) => {
+  const handlePointerDown = (
+    kind: PaletteItemKind,
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
     if (event.button !== 0) return
     event.currentTarget.setPointerCapture(event.pointerId)
     dragRef.current = {
@@ -81,7 +78,8 @@ export function Palette({ pendingKind, onSelect, onDrop }: PaletteProps) {
   const handlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
     const drag = dragRef.current
     if (!drag) return
-    const moved = drag.moved || Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 7
+    const moved =
+      drag.moved || Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) > 7
     dragRef.current = { ...drag, x: event.clientX, y: event.clientY, moved }
     if (moved) setPreview(dragRef.current)
   }
@@ -129,7 +127,11 @@ export function Palette({ pendingKind, onSelect, onDrop }: PaletteProps) {
         ))}
       </div>
       {preview && (
-        <div className="drag-preview" style={{ left: preview.x, top: preview.y }} aria-hidden="true">
+        <div
+          className="drag-preview"
+          style={{ left: preview.x, top: preview.y }}
+          aria-hidden="true"
+        >
           <PaletteFigure kind={preview.kind} />
         </div>
       )}

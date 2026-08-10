@@ -67,10 +67,10 @@ AST 자체가 반복과 조건 안에 `Statement[]`를 재귀적으로 가지므
 
 ## 주요 산출물
 
-| 파일 | 역할 |
-| --- | --- |
-| `src/core/astToText.ts` | AST→표준 의사코드 생성 |
-| `src/core/parser.test.ts` | 파서·생성기 왕복 검증 |
+| 파일                       | 역할                       |
+| -------------------------- | -------------------------- |
+| `src/core/astToText.ts`    | AST→표준 의사코드 생성     |
+| `src/core/parser.test.ts`  | 파서·생성기 왕복 검증      |
 | `src/store/useAppStore.ts` | AST와 의사코드 상태 동기화 |
 
 ## 완료 기준

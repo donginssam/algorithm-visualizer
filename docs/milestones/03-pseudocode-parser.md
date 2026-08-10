@@ -79,12 +79,12 @@ CodeMirror에서만 `<-`와 `*`를 바꾸면 테스트나 다른 입력 경로�
 
 ## 주요 산출물
 
-| 파일 | 역할 |
-| --- | --- |
-| `src/core/parser.ts` | 의사코드 정규화와 파싱 |
+| 파일                            | 역할                          |
+| ------------------------------- | ----------------------------- |
+| `src/core/parser.ts`            | 의사코드 정규화와 파싱        |
 | `src/components/CodeEditor.tsx` | CodeMirror 편집기와 오류 표시 |
 | `src/components/SyntaxHelp.tsx` | 편집기에서 확인하는 문법 요약 |
-| `src/App.tsx` | 300ms 디바운스와 store 호출 |
+| `src/App.tsx`                   | 300ms 디바운스와 store 호출   |
 
 ## 완료 기준
 

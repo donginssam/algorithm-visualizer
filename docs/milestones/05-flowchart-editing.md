@@ -94,14 +94,14 @@ HTML5 Drag and Drop API는 mouse 중심이며 터치스크린에서 일관되게
 
 ## 주요 산출물
 
-| 파일 | 역할 |
-| --- | --- |
-| `src/components/Palette.tsx` | Pointer Events 기반 기호 추가 |
-| `src/components/FlowCanvas.tsx` | 노드·엣지 편집과 그래프 동기화 |
-| `src/components/nodes/FlowNodes.tsx` | 노드 선택 toolbar와 연결점 |
-| `src/components/FlowEdges.tsx` | 엣지 선택 toolbar와 삭제 |
-| `src/core/flowToAst.ts` | 그래프 구조 검증과 AST 복원 |
-| `src/store/useAppStore.ts` | 그래프 안내와 AST·의사코드 갱신 |
+| 파일                                 | 역할                            |
+| ------------------------------------ | ------------------------------- |
+| `src/components/Palette.tsx`         | Pointer Events 기반 기호 추가   |
+| `src/components/FlowCanvas.tsx`      | 노드·엣지 편집과 그래프 동기화  |
+| `src/components/nodes/FlowNodes.tsx` | 노드 선택 toolbar와 연결점      |
+| `src/components/FlowEdges.tsx`       | 엣지 선택 toolbar와 삭제        |
+| `src/core/flowToAst.ts`              | 그래프 구조 검증과 AST 복원     |
+| `src/store/useAppStore.ts`           | 그래프 안내와 AST·의사코드 갱신 |
 
 ## 완료 기준
 

@@ -29,7 +29,7 @@
 
 도식 안에는 폭이 일정한 ASCII 문자만 사용합니다. 한글을 ASCII 테두리 안에 넣으면 Markdown renderer와 fallback font에 따라 글자 폭이 달라져 경계선이 어긋날 수 있으므로, 실제 화면 명칭은 번호가 같은 한국어 설명에서 확인합니다.
 
-[`src/index.css`](../src/index.css)의 `.workspace`는 `2fr 3fr` 열을 사용합니다. 상단바, 패널, 팔레트의 높이를 변경할 때 1366×768에서 body 세로 스크롤이 생기지 않는지 확인합니다.
+[`src/styles/index.scss`](../src/styles/index.scss)의 `.workspace`는 `2fr 3fr` 열을 사용합니다. 상단바, 패널, 팔레트의 높이를 변경할 때 1366×768에서 body 세로 스크롤이 생기지 않는지 확인합니다.
 
 ## 입력 방식
 
@@ -99,16 +99,16 @@ React Flow의 기본 `fitView`만 사용하면 감춰진 캔버스가 다시 나
 
 ## 디자인 토큰
 
-색, 간격, 모서리, 그림자, 터치 최소 크기는 [`src/index.css`](../src/index.css)의 `:root`에 정의합니다. 새 컴포넌트는 가능한 한 기존 토큰을 사용합니다.
+색, 간격, 모서리, 그림자, 터치 최소 크기는 [`src/styles/_tokens.scss`](../src/styles/_tokens.scss)의 `:root`에 정의합니다. 새 컴포넌트는 가능한 한 기존 토큰을 사용합니다.
 
 순서도 교육 표기와 연결된 다음 기호 색은 임의로 바꾸지 않습니다.
 
-| 기호 | 변수 | 값 |
-| --- | --- | --- |
-| 시작·끝 | `--symbol-terminal` | `#FFE066` |
-| 입력·출력 | `--symbol-io` | `#FFB3C6` |
-| 처리 | `--symbol-process` | `#A8D8FF` |
-| 판단 | `--symbol-decision` | `#B7E4C7` |
+| 기호      | 변수                | 값        |
+| --------- | ------------------- | --------- |
+| 시작·끝   | `--symbol-terminal` | `#FFE066` |
+| 입력·출력 | `--symbol-io`       | `#FFB3C6` |
+| 처리      | `--symbol-process`  | `#A8D8FF` |
+| 판단      | `--symbol-decision` | `#B7E4C7` |
 
 색을 바꿔야 한다면 화면 노드, 팔레트, PNG 생성기가 모두 같은 결과를 내는지 확인합니다.
 

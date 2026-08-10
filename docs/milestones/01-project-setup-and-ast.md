@@ -72,13 +72,13 @@ AST를 단일 중간 표현으로 두면 다음 이점이 있습니다.
 
 ## 주요 산출물
 
-| 파일 | 역할 |
-| --- | --- |
-| `package.json` | 의존성과 실행 명령 |
-| `src/main.tsx` | React 애플리케이션 진입점 |
-| `src/core/ast.ts` | 공통 AST 타입 |
-| `src/examples/index.ts` | 학습·검증용 예제 AST |
-| `src/App.tsx` | 당시 임시 확인 화면, 현재는 최종 화면 조립 |
+| 파일                    | 역할                                       |
+| ----------------------- | ------------------------------------------ |
+| `package.json`          | 의존성과 실행 명령                         |
+| `src/main.tsx`          | React 애플리케이션 진입점                  |
+| `src/core/ast.ts`       | 공통 AST 타입                              |
+| `src/examples/index.ts` | 학습·검증용 예제 AST                       |
+| `src/App.tsx`           | 당시 임시 확인 화면, 현재는 최종 화면 조립 |
 
 ## 완료 기준
 

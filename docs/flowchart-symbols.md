@@ -4,14 +4,14 @@
 
 ## 기본 기호
 
-| 의미 | 그래프 `kind` | 모양 | 채우기 색 | CSS 변수 | 기준 크기 |
-| --- | --- | --- | --- | --- | --- |
-| 시작·끝 | `terminal` | 둥근 사각형 | 노란색 `#FFE066` | `--symbol-terminal` | 172×64px |
-| 입력 | `input` | 평행사변형 | 분홍색 `#FFB3C6` | `--symbol-io` | 190×76px |
-| 출력 | `output` | 평행사변형 | 분홍색 `#FFB3C6` | `--symbol-io` | 190×76px |
-| 대입·계산 | `process` | 직사각형 | 연한 파란색 `#A8D8FF` | `--symbol-process` | 190×72px |
-| 조건·반복 판단 | `decision` | 마름모 | 연한 초록색 `#B7E4C7` | `--symbol-decision` | 220×124px |
-| 조건 분기 합류 | `junction` | 작은 원 | 흰색 | 해당 없음 | 18×18px |
+| 의미           | 그래프 `kind` | 모양        | 채우기 색             | CSS 변수            | 기준 크기 |
+| -------------- | ------------- | ----------- | --------------------- | ------------------- | --------- |
+| 시작·끝        | `terminal`    | 둥근 사각형 | 노란색 `#FFE066`      | `--symbol-terminal` | 172×64px  |
+| 입력           | `input`       | 평행사변형  | 분홍색 `#FFB3C6`      | `--symbol-io`       | 190×76px  |
+| 출력           | `output`      | 평행사변형  | 분홍색 `#FFB3C6`      | `--symbol-io`       | 190×76px  |
+| 대입·계산      | `process`     | 직사각형    | 연한 파란색 `#A8D8FF` | `--symbol-process`  | 190×72px  |
+| 조건·반복 판단 | `decision`    | 마름모      | 연한 초록색 `#B7E4C7` | `--symbol-decision` | 220×124px |
+| 조건 분기 합류 | `junction`    | 작은 원     | 흰색                  | 해당 없음           | 18×18px   |
 
 `junction`은 조건의 두 흐름을 구조적으로 합치기 위한 내부 기호입니다. 팔레트에서 직접 추가하는 교육용 기호가 아니며 AST에도 별도 문장으로 나타나지 않습니다.
 
@@ -114,13 +114,13 @@
 
 ## 구현 기준 위치
 
-| 규칙 | 기준 구현 |
-| --- | --- |
-| 기호 색·글자·테두리 | `src/index.css`의 `--symbol-*` |
-| 기호 크기 | `src/core/astToFlow.ts`의 `NODE_SIZES`와 `src/index.css` |
-| 화면 도형 | `src/components/nodes/FlowNodes.tsx` |
-| 팔레트 도형 | `src/components/Palette.tsx` |
-| 화살표 색·화살촉 | `src/core/astToFlow.ts`, `src/index.css` |
-| 자동 배치·분기 방향 | `src/core/astToFlow.ts` |
-| 저장용 도형·화살표 | `src/core/flowToSvg.ts` |
-| 공용 화살표 경로 | `src/core/edgeGeometry.ts` |
+| 규칙                | 기준 구현                                                        |
+| ------------------- | ---------------------------------------------------------------- |
+| 기호 색·글자·테두리 | `src/styles/_tokens.scss`의 `--symbol-*`                         |
+| 기호 크기           | `src/core/astToFlow.ts`의 `NODE_SIZES`와 `src/styles/index.scss` |
+| 화면 도형           | `src/components/nodes/FlowNodes.tsx`                             |
+| 팔레트 도형         | `src/components/Palette.tsx`                                     |
+| 화살표 색·화살촉    | `src/core/astToFlow.ts`, `src/styles/_tokens.scss`               |
+| 자동 배치·분기 방향 | `src/core/astToFlow.ts`                                          |
+| 저장용 도형·화살표  | `src/core/flowToSvg.ts`                                          |
+| 공용 화살표 경로    | `src/core/edgeGeometry.ts`                                       |

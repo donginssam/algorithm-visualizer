@@ -23,8 +23,16 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react"
+import {
+  ASSIGN_GLYPH,
+  INPUT_LABEL,
+  INPUT_PREFIX,
+  OUTPUT_LABEL,
+  OUTPUT_PREFIX,
+  PSEUDOCODE_SYMBOLS,
+} from "../constants/pseudocode"
 import type { Program } from "../core/ast"
-import { arrowMarker, astToFlow } from "../core/astToFlow"
+import { arrowMarker, astToFlow, NODE_SIZES } from "../core/astToFlow"
 import { flowToAst, FlowValidationError } from "../core/flowToAst"
 import { flowToSvg, graphBounds } from "../core/flowToSvg"
 import type {
@@ -121,23 +129,37 @@ function userNode(
 
   switch (kind) {
     case "terminal":
-      return [{
-        id,
-        type: "terminal",
-        position,
-        data: {
-          kind: "terminal",
-          label: terminalRole === "start" ? "시작" : "끝",
-          terminalRole,
+      return [
+        {
+          id,
+          type: "terminal",
+          position,
+          data: {
+            kind: "terminal",
+            label: terminalRole === "start" ? "시작" : "끝",
+            terminalRole,
+          },
         },
-      }]
+      ]
     case "io":
-      return [{ id, type: "io", position, data: { kind: "input", label: "입력: 변수" } }]
+      return [{ id, type: "io", position, data: { kind: "input", label: `${INPUT_PREFIX}변수` } }]
     case "process":
-      return [{ id, type: "process", position, data: { kind: "process", label: "변수 ← 값" } }]
+      return [
+        {
+          id,
+          type: "process",
+          position,
+          data: { kind: "process", label: `변수 ${ASSIGN_GLYPH} 값` },
+        },
+      ]
     case "decision":
       return [
-        { id, type: "decision", position, data: { kind: "decision", label: "판단 조건", controlKind: "if" } },
+        {
+          id,
+          type: "decision",
+          position,
+          data: { kind: "decision", label: "판단 조건", controlKind: "if" },
+        },
         {
           id: `${id}-junction`,
           type: "junction",
@@ -145,6 +167,44 @@ function userNode(
           data: { kind: "junction", label: "합류" },
         },
       ]
+  }
+}
+
+function graphErrorMessage(error: unknown): string {
+  return error instanceof FlowValidationError ? error.message : "순서도의 연결을 확인해 주세요."
+}
+
+function stripIoDecoration(value: string): string {
+  return value
+    .replace(new RegExp(`^(?:${INPUT_LABEL}|${OUTPUT_LABEL})\\s*:\\s*`), "")
+    .replace(new RegExp(`\\s+(?:${INPUT_LABEL}|${OUTPUT_LABEL})$`), "")
+    .trim()
+}
+
+function editableNodeValue(node: AlgorithmFlowNode): string {
+  return node.data.kind === "input" || node.data.kind === "output"
+    ? stripIoDecoration(node.data.label)
+    : node.data.label
+}
+
+function editingLabel(editing: EditingState): string {
+  const value = normalizeSymbols(editing.value).trim()
+
+  switch (editing.kind) {
+    case "terminal":
+      return editing.terminalRole === "end" ? "끝" : "시작"
+    case "input":
+      return `${INPUT_PREFIX}${stripIoDecoration(value)}`
+    case "output":
+      return `${OUTPUT_PREFIX}${stripIoDecoration(value)}`
+    case "decision":
+      return value
+        .replace(/^\[만약\s+/, "")
+        .replace(/\]$/, "")
+        .replace(/\s+반복$/, "")
+        .trim()
+    default:
+      return value
   }
 }
 
@@ -172,23 +232,34 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
   const needsFitRef = useRef(true)
-  const { screenToFlowPosition, getViewport, setViewport } =
-    useReactFlow<AlgorithmFlowNode, AlgorithmFlowEdge>()
+  const { screenToFlowPosition, getViewport, setViewport } = useReactFlow<
+    AlgorithmFlowNode,
+    AlgorithmFlowEdge
+  >()
   // 캔버스의 실제 크기. 탭 전환으로 감춰져 있는 동안에는 0입니다.
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
 
-  // 그래프가 바뀌는 길목은 이 둘뿐입니다. 여기서 알리면 기호 추가·삭제·연결·편집은
-  // 물론 끌어 옮기기까지 한 곳에서 잡힙니다(App이 받아서 저장합니다).
-  const replaceNodes = (next: AlgorithmFlowNode[]) => {
-    nodesRef.current = next
-    setNodesState(next)
-    onGraphChange(next, edgesRef.current)
-  }
-  const replaceEdges = (next: AlgorithmFlowEdge[]) => {
-    edgesRef.current = next
-    setEdgesState(next)
-    onGraphChange(nodesRef.current, next)
-  }
+  // 모든 그래프 변경을 한 길목으로 모아 화면 상태와 저장할 상태가 어긋나지 않게 합니다.
+  const replaceGraph = useCallback(
+    (nextNodes: AlgorithmFlowNode[], nextEdges: AlgorithmFlowEdge[]) => {
+      nodesRef.current = nextNodes
+      edgesRef.current = nextEdges
+      setNodesState(nextNodes)
+      setEdgesState(nextEdges)
+      onGraphChange(nextNodes, nextEdges)
+    },
+    [onGraphChange],
+  )
+
+  const replaceNodes = useCallback(
+    (nextNodes: AlgorithmFlowNode[]) => replaceGraph(nextNodes, edgesRef.current),
+    [replaceGraph],
+  )
+
+  const replaceEdges = useCallback(
+    (nextEdges: AlgorithmFlowEdge[]) => replaceGraph(nodesRef.current, nextEdges),
+    [replaceGraph],
+  )
 
   const syncGraph = useCallback(
     (nextNodes: AlgorithmFlowNode[], nextEdges: AlgorithmFlowEdge[]) => {
@@ -197,12 +268,21 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
         onGraphMessage(null)
         onProgramChange(nextProgram)
       } catch (error) {
-        const message =
-          error instanceof FlowValidationError ? error.message : "순서도의 연결을 확인해 주세요."
-        onGraphMessage(message)
+        onGraphMessage(graphErrorMessage(error))
       }
     },
     [onGraphMessage, onProgramChange],
+  )
+
+  // 사용자가 그래프를 바꾼 모든 자리(추가·삭제·연결·편집)가 거치는 길목.
+  // 저장 표시, 화면 상태, 의사코드 동기화를 한 번에 맞춥니다.
+  const commitGraph = useCallback(
+    (nextNodes: AlgorithmFlowNode[], nextEdges: AlgorithmFlowEdge[]) => {
+      onGraphMutation()
+      replaceGraph(nextNodes, nextEdges)
+      syncGraph(nextNodes, nextEdges)
+    },
+    [onGraphMutation, replaceGraph, syncGraph],
   )
 
   /*
@@ -219,13 +299,11 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     if (skip) return
     if (source === "flow") return
     const graph = astToFlow(program)
-    replaceNodes(graph.nodes)
-    replaceEdges(graph.edges)
+    replaceGraph(graph.nodes, graph.edges)
     // 새 기호의 크기가 측정된 뒤에 맞춰야 하므로 아래 효과에 넘깁니다.
     needsFitRef.current = true
     // revision이 바뀔 때 최신 AST를 다시 배치합니다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [revision, source])
+  }, [program, replaceGraph, revision, source])
 
   /*
    * 되살린 그래프가 아직 미완성이면 안내를 다시 띄웁니다.
@@ -238,18 +316,20 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     try {
       flowToAst(restoredGraph.nodes, restoredGraph.edges)
     } catch (error) {
-      onGraphMessage(
-        error instanceof FlowValidationError ? error.message : "순서도의 연결을 확인해 주세요.",
-      )
+      onGraphMessage(graphErrorMessage(error))
     }
-    // 처음 한 번만 확인합니다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [onGraphMessage, restoredGraph])
 
   const addAtScreen = useCallback(
     (kind: PaletteItemKind, clientX: number, clientY: number) => {
       const rect = containerRef.current?.getBoundingClientRect()
-      if (!rect || clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+      if (
+        !rect ||
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) {
         return false
       }
 
@@ -261,21 +341,17 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       const hasStart = nodesRef.current.some(node => node.data.terminalRole === "start")
       const hasEnd = nodesRef.current.some(node => node.data.terminalRole === "end")
       const terminalRole = !hasStart ? "start" : !hasEnd ? "end" : "start"
-      const additions = userNode(
-        kind,
-        { x: point.x - 95, y: point.y - 36 },
-        terminalRole,
-      ).map((node, index) => ({ ...node, selected: index === 0 }))
+      const additions = userNode(kind, { x: point.x - 95, y: point.y - 36 }, terminalRole).map(
+        (node, index) => ({ ...node, selected: index === 0 }),
+      )
       const nextNodes = [
         ...nodesRef.current.map(node => ({ ...node, selected: false })),
         ...additions,
       ]
-      onGraphMutation()
-      replaceNodes(nextNodes)
-      syncGraph(nextNodes, edgesRef.current)
+      commitGraph(nextNodes, edgesRef.current)
       return true
     },
-    [onGraphMutation, screenToFlowPosition, syncGraph],
+    [commitGraph, screenToFlowPosition],
   )
 
   useEffect(() => {
@@ -373,58 +449,65 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     link.click()
   }, [])
 
-  useImperativeHandle(
-    ref,
-    () => ({ addNodeAtScreen: addAtScreen, exportPng }),
-    [addAtScreen, exportPng],
-  )
+  useImperativeHandle(ref, () => ({ addNodeAtScreen: addAtScreen, exportPng }), [
+    addAtScreen,
+    exportPng,
+  ])
 
   const handleNodesChange = (changes: NodeChange<AlgorithmFlowNode>[]) => {
     const next = applyNodeChanges(changes, nodesRef.current)
-    if (changes.some(change => change.type === "remove")) onGraphMutation()
-    replaceNodes(next)
-    if (changes.some(change => change.type === "remove")) syncGraph(next, edgesRef.current)
+    if (changes.some(change => change.type === "remove")) {
+      commitGraph(next, edgesRef.current)
+    } else {
+      replaceNodes(next)
+    }
   }
 
   const handleEdgesChange = (changes: EdgeChange<AlgorithmFlowEdge>[]) => {
     const next = applyEdgeChanges(changes, edgesRef.current)
-    if (changes.some(change => change.type === "remove")) onGraphMutation()
-    replaceEdges(next)
-    if (changes.some(change => change.type === "remove")) syncGraph(nodesRef.current, next)
+    if (changes.some(change => change.type === "remove")) {
+      commitGraph(nodesRef.current, next)
+    } else {
+      replaceEdges(next)
+    }
   }
 
   const handleConnect = (connection: Connection) => {
     const targetNode = nodesRef.current.find(node => node.id === connection.target)
-    const isLoopBack = targetNode?.data.controlKind === "loop"
-      && edgesRef.current.some(edge => edge.target === connection.target)
+    const isLoopBack =
+      targetNode?.data.controlKind === "loop" &&
+      edgesRef.current.some(edge => edge.target === connection.target)
     const branch = isLoopBack
       ? "loop-back"
       : connection.sourceHandle === "yes" || connection.sourceHandle === "no"
         ? connection.sourceHandle
         : "next"
     const sourceNode = nodesRef.current.find(node => node.id === connection.source)
-    const sourceWidth = sourceNode?.measured?.width ?? 190
-    const sourceHeight = sourceNode?.measured?.height ?? 72
-    const targetWidth = targetNode?.measured?.width ?? 220
+    const sourceWidth = sourceNode?.measured?.width ?? NODE_SIZES.process.width
+    const sourceHeight = sourceNode?.measured?.height ?? NODE_SIZES.process.height
+    const targetWidth = targetNode?.measured?.width ?? NODE_SIZES.decision.width
     const graphRight = Math.max(
-      ...nodesRef.current.map(node => node.position.x + (node.measured?.width ?? 220)),
+      ...nodesRef.current.map(
+        node => node.position.x + (node.measured?.width ?? NODE_SIZES.decision.width),
+      ),
     )
-    const routePoints = branch === "loop-back" && sourceNode && targetNode
-      ? [
-          {
-            x: sourceNode.position.x + sourceWidth / 2,
-            y: sourceNode.position.y + sourceHeight,
-          },
-          {
-            x: sourceNode.position.x + sourceWidth / 2,
-            y: sourceNode.position.y + sourceHeight + 34,
-          },
-          { x: graphRight + 46, y: sourceNode.position.y + sourceHeight + 34 },
-          { x: graphRight + 46, y: targetNode.position.y - 34 },
-          { x: targetNode.position.x + targetWidth / 2, y: targetNode.position.y - 34 },
-          { x: targetNode.position.x + targetWidth / 2, y: targetNode.position.y },
-        ]
-      : undefined
+    const routePoints =
+      branch === "loop-back" && sourceNode && targetNode
+        ? [
+            {
+              x: sourceNode.position.x + sourceWidth / 2,
+              y: sourceNode.position.y + sourceHeight,
+            },
+            {
+              x: sourceNode.position.x + sourceWidth / 2,
+              y: sourceNode.position.y + sourceHeight + 34,
+            },
+            { x: graphRight + 46, y: sourceNode.position.y + sourceHeight + 34 },
+            { x: graphRight + 46, y: targetNode.position.y - 34 },
+            { x: targetNode.position.x + targetWidth / 2, y: targetNode.position.y - 34 },
+            { x: targetNode.position.x + targetWidth / 2, y: targetNode.position.y },
+          ]
+        : undefined
     const next = addEdge<AlgorithmFlowEdge>(
       {
         ...connection,
@@ -437,25 +520,18 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       },
       edgesRef.current,
     )
-    onGraphMutation()
-    replaceEdges(next)
-    syncGraph(nodesRef.current, next)
+    commitGraph(nodesRef.current, next)
   }
 
   const removeNode = (id: string) => {
     const nextNodes = nodesRef.current.filter(node => node.id !== id)
     const nextEdges = edgesRef.current.filter(edge => edge.source !== id && edge.target !== id)
-    onGraphMutation()
-    replaceNodes(nextNodes)
-    replaceEdges(nextEdges)
-    syncGraph(nextNodes, nextEdges)
+    commitGraph(nextNodes, nextEdges)
   }
 
   const removeEdge = (id: string) => {
     const nextEdges = edgesRef.current.filter(edge => edge.id !== id)
-    onGraphMutation()
-    replaceEdges(nextEdges)
-    syncGraph(nodesRef.current, nextEdges)
+    commitGraph(nodesRef.current, nextEdges)
   }
 
   const openEditor = (id: string) => {
@@ -463,11 +539,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     if (!node) return
     setEditing({
       id,
-      value: node.data.kind === "input"
-        ? node.data.label.replace(/^입력\s*:\s*/, "").replace(/\s+입력$/, "")
-        : node.data.kind === "output"
-          ? node.data.label.replace(/^출력\s*:\s*/, "").replace(/\s+출력$/, "")
-          : node.data.label,
+      value: editableNodeValue(node),
       kind: node.data.kind,
       controlKind: node.data.controlKind,
       originalControlKind: node.data.controlKind,
@@ -477,19 +549,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
 
   const saveEditing = () => {
     if (!editing) return
-    let label = normalizeSymbols(editing.value).trim()
     const kind = editing.kind
-
-    if (kind === "terminal") label = editing.terminalRole === "end" ? "끝" : "시작"
-    if (kind === "input") label = `입력: ${label.replace(/^(?:입력|출력)\s*:\s*/, "").replace(/\s+(?:입력|출력)$/, "").trim()}`
-    if (kind === "output") label = `출력: ${label.replace(/^(?:입력|출력)\s*:\s*/, "").replace(/\s+(?:입력|출력)$/, "").trim()}`
-    if (kind === "decision") {
-      label = label
-        .replace(/^\[만약\s+/, "")
-        .replace(/\]$/, "")
-        .replace(/\s+반복$/, "")
-        .trim()
-    }
+    const label = editingLabel(editing)
 
     let nextNodes = nodesRef.current.map(node =>
       node.id === editing.id
@@ -511,7 +572,9 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       const junctionId = `${editing.id}-junction`
       if (editing.controlKind === "loop") {
         nextNodes = nextNodes.filter(node => node.id !== junctionId)
-        nextEdges = nextEdges.filter(edge => edge.source !== junctionId && edge.target !== junctionId)
+        nextEdges = nextEdges.filter(
+          edge => edge.source !== junctionId && edge.target !== junctionId,
+        )
       } else if (!nextNodes.some(node => node.id === junctionId)) {
         const decision = nextNodes.find(node => node.id === editing.id)
         if (decision) {
@@ -528,11 +591,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       }
     }
 
-    onGraphMutation()
-    replaceNodes(nextNodes)
-    replaceEdges(nextEdges)
+    commitGraph(nextNodes, nextEdges)
     setEditing(null)
-    syncGraph(nextNodes, nextEdges)
   }
 
   const handlePaneClick = (event: ReactMouseEvent) => {
@@ -558,19 +618,29 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
             isValidConnection={connection => {
               const sourceNode = nodesRef.current.find(node => node.id === connection.source)
               const targetNode = nodesRef.current.find(node => node.id === connection.target)
-              if (!sourceNode || !targetNode || connection.source === connection.target) return false
-              if (sourceNode.data.terminalRole === "end" || targetNode.data.terminalRole === "start") return false
+              if (!sourceNode || !targetNode || connection.source === connection.target)
+                return false
+              if (
+                sourceNode.data.terminalRole === "end" ||
+                targetNode.data.terminalRole === "start"
+              )
+                return false
 
               const sourceHandle = connection.sourceHandle ?? "next"
               const sourceAlreadyConnected = edgesRef.current.some(
-                edge => edge.source === connection.source && (edge.sourceHandle ?? "next") === sourceHandle,
+                edge =>
+                  edge.source === connection.source &&
+                  (edge.sourceHandle ?? "next") === sourceHandle,
               )
               if (sourceAlreadyConnected) return false
 
-              const incomingCount = edgesRef.current.filter(edge => edge.target === connection.target).length
-              const maximumIncoming = targetNode.data.kind === "junction" || targetNode.data.controlKind === "loop"
-                ? 2
-                : 1
+              const incomingCount = edgesRef.current.filter(
+                edge => edge.target === connection.target,
+              ).length
+              const maximumIncoming =
+                targetNode.data.kind === "junction" || targetNode.data.controlKind === "loop"
+                  ? 2
+                  : 1
               return incomingCount < maximumIncoming
             }}
             minZoom={MIN_ZOOM}
@@ -590,11 +660,21 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       </NodeActionContext.Provider>
 
       {pendingKind && <div className="placement-hint">캔버스에서 기호를 놓을 위치를 탭하세요.</div>}
-      {graphMessage && <div className="graph-message" role="status">{graphMessage}</div>}
+      {graphMessage && (
+        <div className="graph-message" role="status">
+          {graphMessage}
+        </div>
+      )}
 
       {editing && (
         <div className="modal-backdrop" role="presentation" onPointerDown={() => setEditing(null)}>
-          <div className="node-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="node-editor-title" onPointerDown={event => event.stopPropagation()}>
+          <div
+            className="node-editor-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="node-editor-title"
+            onPointerDown={event => event.stopPropagation()}
+          >
             <h3 id="node-editor-title">기호 내용 편집</h3>
             {editing.kind === "terminal" && (
               <label>
@@ -602,9 +682,11 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
                 <select
                   value={editing.terminalRole ?? "start"}
                   onChange={event =>
-                    setEditing(current => current
-                      ? { ...current, terminalRole: event.target.value as TerminalRole }
-                      : current)
+                    setEditing(current =>
+                      current
+                        ? { ...current, terminalRole: event.target.value as TerminalRole }
+                        : current,
+                    )
                   }
                 >
                   <option value="start">시작</option>
@@ -618,7 +700,11 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
                 <select
                   value={editing.kind}
                   onChange={event =>
-                    setEditing(current => current ? { ...current, kind: event.target.value as "input" | "output" } : current)
+                    setEditing(current =>
+                      current
+                        ? { ...current, kind: event.target.value as "input" | "output" }
+                        : current,
+                    )
                   }
                 >
                   <option value="input">입력</option>
@@ -632,9 +718,11 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
                 <select
                   value={editing.controlKind ?? "if"}
                   onChange={event =>
-                    setEditing(current => current
-                      ? { ...current, controlKind: event.target.value as ControlKind }
-                      : current)
+                    setEditing(current =>
+                      current
+                        ? { ...current, controlKind: event.target.value as ControlKind }
+                        : current,
+                    )
                   }
                 >
                   <option value="if">조건 분기</option>
@@ -648,7 +736,11 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
                 <input
                   autoFocus
                   value={editing.value}
-                  onChange={event => setEditing(current => current ? { ...current, value: event.target.value } : current)}
+                  onChange={event =>
+                    setEditing(current =>
+                      current ? { ...current, value: event.target.value } : current,
+                    )
+                  }
                   onKeyDown={event => {
                     if (event.key === "Enter") saveEditing()
                     if (event.key === "Escape") setEditing(null)
@@ -657,19 +749,27 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
               </label>
             )}
             <div className="dialog-symbols" aria-label="기호 입력">
-              {["←", "×", "÷"].map(symbol => (
+              {PSEUDOCODE_SYMBOLS.map(symbol => (
                 <button
                   key={symbol}
                   type="button"
-                  onClick={() => setEditing(current => current ? { ...current, value: current.value + symbol } : current)}
+                  onClick={() =>
+                    setEditing(current =>
+                      current ? { ...current, value: current.value + symbol } : current,
+                    )
+                  }
                 >
                   {symbol}
                 </button>
               ))}
             </div>
             <div className="dialog-actions">
-              <button type="button" onClick={() => setEditing(null)}>취소</button>
-              <button type="button" className="primary" onClick={saveEditing}>저장</button>
+              <button type="button" onClick={() => setEditing(null)}>
+                취소
+              </button>
+              <button type="button" className="primary" onClick={saveEditing}>
+                저장
+              </button>
             </div>
           </div>
         </div>

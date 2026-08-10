@@ -24,12 +24,14 @@ pnpm dev
 
 ### 명령어
 
-| 명령어         | 설명                                |
-| -------------- | ----------------------------------- |
-| `pnpm dev`     | 개발 서버 실행                      |
-| `pnpm build`   | TypeScript 검사 후 배포용 파일 생성 |
-| `pnpm preview` | 생성된 배포용 파일 미리보기         |
-| `pnpm test`    | Vitest 테스트 한 번 실행            |
+| 명령어           | 설명                                        |
+| ---------------- | ------------------------------------------- |
+| `pnpm dev`       | 개발 서버 실행                              |
+| `pnpm build`     | 포맷·TypeScript 검사 후 배포용 파일 생성    |
+| `pnpm format`    | TypeScript·Sass·설정 파일을 Prettier로 정리 |
+| `pnpm typecheck` | TypeScript 타입 검사                        |
+| `pnpm preview`   | 생성된 배포용 파일 미리보기                 |
+| `pnpm test`      | Vitest 테스트 한 번 실행                    |
 
 ## 사용 방법
 
@@ -118,6 +120,8 @@ pnpm dev
 - dagre: 노드 자동 배치
 - CodeMirror 6: 의사코드 편집기
 - zustand: AST 중심 상태 관리
+- Sass: 디자인 토큰과 재사용 스타일 관리
+- Prettier: 빌드 전 코드 형식 검증
 - Vitest: 파서와 양방향 변환 테스트
 
 ## 프로젝트 구조
@@ -134,9 +138,11 @@ src/
     flowToSvg.ts        순서도 그래프 → 저장용 SVG
     workspaceStore.ts   작업 내용 자동 저장(localStorage)
   components/           편집기, 캔버스, 팔레트, 예제 화면
+  constants/            여러 편집 화면이 공유하는 상수
   examples/             예제 알고리즘
-  hooks/                해시 기반 화면 전환
+  hooks/                해시 기반 화면 전환과 공통 타이머
   store/                전역 상태
+  styles/               Sass 디자인 토큰, 믹스인, 컴포넌트 스타일
 ```
 
 ## 테스트

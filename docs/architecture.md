@@ -44,14 +44,14 @@ interface Program {
 
 전역 상태는 [`src/store/useAppStore.ts`](../src/store/useAppStore.ts)의 zustand store가 관리합니다.
 
-| 상태 | 역할 |
-| --- | --- |
-| `program` | 현재 유효한 AST |
-| `code` | 편집기에 보이는 의사코드 초안 |
-| `parseError` | 현재 의사코드의 문법 오류 |
-| `graphMessage` | 순서도를 AST로 바꿀 수 없을 때 보여 줄 안내 |
-| `revision` | 외부에서 새 AST가 들어왔음을 캔버스에 알리는 번호 |
-| `source` | 변경 출처: `text`, `flow`, `example` |
+| 상태           | 역할                                              |
+| -------------- | ------------------------------------------------- |
+| `program`      | 현재 유효한 AST                                   |
+| `code`         | 편집기에 보이는 의사코드 초안                     |
+| `parseError`   | 현재 의사코드의 문법 오류                         |
+| `graphMessage` | 순서도를 AST로 바꿀 수 없을 때 보여 줄 안내       |
+| `revision`     | 외부에서 새 AST가 들어왔음을 캔버스에 알리는 번호 |
+| `source`       | 변경 출처: `text`, `flow`, `example`              |
 
 초깃값은 `localStorage`에 저장해 둔 작업 내용이 있으면 그것으로 채웁니다(아래 [작업 내용 자동 저장](#작업-내용-자동-저장)).
 
@@ -78,12 +78,12 @@ interface Program {
 
 저장하는 것은 **AST가 아니라 순서도 그래프 자체**입니다. 만드는 도중에는 아직 연결하지 않은 기호가 있어 `flowToAst`가 실패하는데, 그 미완성 상태야말로 잃어버리면 안 되는 내용이기 때문입니다. 저장 값은 `code`(쓰다 만 글자 그대로), `program`(마지막으로 유효했던 AST), `source`, `nodes`, `edges`입니다.
 
-| 규칙 | 이유 |
-| --- | --- |
-| 키에 버전을 둔다(`algorithm-visualizer/workspace/v1`) | 저장 형식이 바뀌면 예전 값을 읽지 않고 버립니다 |
-| `parseWorkspace`가 모양을 검사해 어긋나면 `null` | 손상된 값 때문에 화면이 깨진 채 열리는 것보다 빈 화면이 낫습니다 |
-| `measured`·`selected`·`dragging`은 저장하지 않는다 | React Flow가 실행 중에 붙이는 값이라 다음에 열 때 다시 측정됩니다 |
-| `localStorage` 접근은 모두 `try/catch` | 사생활 보호 모드처럼 막혀 있어도 편집은 계속할 수 있어야 합니다 |
+| 규칙                                                  | 이유                                                              |
+| ----------------------------------------------------- | ----------------------------------------------------------------- |
+| 키에 버전을 둔다(`algorithm-visualizer/workspace/v1`) | 저장 형식이 바뀌면 예전 값을 읽지 않고 버립니다                   |
+| `parseWorkspace`가 모양을 검사해 어긋나면 `null`      | 손상된 값 때문에 화면이 깨진 채 열리는 것보다 빈 화면이 낫습니다  |
+| `measured`·`selected`·`dragging`은 저장하지 않는다    | React Flow가 실행 중에 붙이는 값이라 다음에 열 때 다시 측정됩니다 |
+| `localStorage` 접근은 모두 `try/catch`                | 사생활 보호 모드처럼 막혀 있어도 편집은 계속할 수 있어야 합니다   |
 
 - **저장**: [`src/App.tsx`](../src/App.tsx)가 `code`·`program`·`source` 변화와 `FlowCanvas`의 `onGraphChange`(기호 추가·삭제·연결·편집·이동)를 받아 400ms 디바운스로 저장합니다. `pagehide`에서 예약된 저장을 즉시 흘려보냅니다.
 - **복원**: store가 만들어질 때 한 번 읽어 `program`·`code`·`source`·`parseError`의 초깃값으로 씁니다. 그래프는 `FlowCanvas`의 `restoredGraph` prop으로 넘어가고, **첫 자동 배치를 한 번 건너뜁니다**. 그러지 않으면 AST에서 다시 그리면서 연결하지 않은 기호가 사라집니다. 복원한 그래프가 미완성이면 검증만 다시 돌려 `graphMessage`를 띄웁니다(의사코드 초안은 건드리지 않습니다).
@@ -93,22 +93,22 @@ interface Program {
 
 화면은 두 개이며 [`src/hooks/useHashRoute.ts`](../src/hooks/useHashRoute.ts)가 URL 해시를 읽습니다.
 
-| 주소 | 화면 |
-| --- | --- |
-| `#/` | 의사코드·순서도 편집 화면 |
-| `#/examples` | 예제 선택 화면 |
+| 주소         | 화면                      |
+| ------------ | ------------------------- |
+| `#/`         | 의사코드·순서도 편집 화면 |
+| `#/examples` | 예제 선택 화면            |
 
 예제 화면으로 이동해도 편집 화면은 DOM에서 제거하지 않고 `hidden`으로 감춥니다. 따라서 예제를 둘러보다가 돌아와도 편집 중인 그래프와 viewport가 유지됩니다. 브라우저 뒤로가기와 주소 공유는 해시 변경으로 동작합니다.
 
 ## 모듈 책임
 
-| 경로 | 책임 |
-| --- | --- |
-| `src/core/` | UI와 무관한 AST, 파싱, 그래프 변환, 검증, 경로 계산, SVG 생성 |
+| 경로              | 책임                                                           |
+| ----------------- | -------------------------------------------------------------- |
+| `src/core/`       | UI와 무관한 AST, 파싱, 그래프 변환, 검증, 경로 계산, SVG 생성  |
 | `src/components/` | CodeMirror, React Flow, 팔레트, 예제 화면 등 사용자 인터페이스 |
-| `src/store/` | 유효한 AST와 두 편집 표현 사이의 동기화 |
-| `src/hooks/` | 해시 기반 화면 전환 |
-| `src/examples/` | 학습용 예제 AST |
+| `src/store/`      | 유효한 AST와 두 편집 표현 사이의 동기화                        |
+| `src/hooks/`      | 해시 기반 화면 전환                                            |
+| `src/examples/`   | 학습용 예제 AST                                                |
 
 `src/core/`는 가능한 한 DOM과 React에 의존하지 않는 순수 로직으로 유지합니다. 변환 규칙을 이 영역에 모으면 Vitest로 빠르게 검증하고 화면과 PNG에서 같은 결과를 재사용할 수 있습니다.
 

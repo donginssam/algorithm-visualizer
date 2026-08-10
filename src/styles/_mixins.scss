@@ -1,0 +1,32 @@
+@mixin control-button($min-width: null) {
+  min-width: $min-width;
+  min-height: var(--touch-min);
+  padding: 0 16px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  background: var(--surface-card);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@mixin semantic-colors($foreground, $background) {
+  color: $foreground;
+  background: $background;
+}
+
+/** 세로 가운데 정렬 + 간격. 흔한 가로 나열(아이콘+글자, 툴바 등)에 씁니다. */
+@mixin flex-row($gap: 0, $display: flex) {
+  display: $display;
+  align-items: center;
+  gap: $gap;
+}
+
+/** 가로·세로 모두 가운데 정렬 + 간격. */
+@mixin flex-center($gap: 0, $display: flex) {
+  display: $display;
+  align-items: center;
+  justify-content: center;
+  gap: $gap;
+}

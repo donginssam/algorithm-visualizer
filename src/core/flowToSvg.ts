@@ -6,29 +6,23 @@
  * 통째로 빠집니다. 그래서 이미 갖고 있는 좌표 정보(노드 위치 + routePoints)로
  * 직접 SVG를 만듭니다.
  *
- * 도형 색과 크기는 src/index.css, 화살표 경로는 core/edgeGeometry.ts와 같은
+ * 도형 색과 크기는 styles의 Sass 파일, 화살표 경로는 core/edgeGeometry.ts와 같은
  * 규칙을 씁니다.
  */
 
+import {
+  EDGE_COLOR as EDGE_STROKE,
+  LOOP_EDGE_COLOR as LOOP_EDGE_STROKE,
+  SHAPE_FILL,
+} from "../constants/flowColors"
 import { NODE_SIZES, oppositeSide, yesSideOf } from "./astToFlow"
 import { loopBackPath, roundedRoutePath, type RoutePoint } from "./edgeGeometry"
-import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowNodeKind } from "./flowTypes"
-
-/** 순서도 기호 색 — 교육과정 표준. */
-const SHAPE_FILL: Record<FlowNodeKind, string> = {
-  terminal: "#ffe066",
-  input: "#ffb3c6",
-  output: "#ffb3c6",
-  process: "#a8d8ff",
-  decision: "#b7e4c7",
-  junction: "#ffffff",
-}
+import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./flowTypes"
+import { SHAPE_OUTLINE_POINTS, type ShapePoint } from "./shapeGeometry"
 
 const SHAPE_STROKE = "rgba(30, 41, 59, 0.42)"
-/** 화살표 색·굵기 — src/index.css의 --edge-stroke, --xy-edge-stroke-width와 같은 값. */
-const EDGE_STROKE = "#475569"
+/** 화살표 굵기 — styles/_tokens.scss의 --edge-width와 같은 값. */
 const EDGE_WIDTH = 2.2
-const LOOP_EDGE_STROKE = "#7c5cf0"
 const LOOP_EDGE_WIDTH = 2.4
 const TEXT_COLOR = "#111827"
 const LABEL_COLOR = "#35415e"
@@ -81,6 +75,19 @@ function targetPoint(node: AlgorithmFlowNode): RoutePoint {
   return { x: node.position.x + width / 2, y: node.position.y }
 }
 
+/** SHAPE_OUTLINE_POINTS(0~1 정규화 좌표)를 도형의 실제 픽셀 위치·크기로 늘려 그립니다. */
+function outlinePolygon(
+  points: readonly ShapePoint[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  fill: string,
+): string {
+  const scaled = points.map(([px, py]) => `${round(x + width * px)},${round(y + height * py)}`)
+  return `<polygon points="${scaled.join(" ")}" fill="${fill}" stroke="${SHAPE_STROKE}" stroke-width="2" />`
+}
+
 function shapeMarkup(node: AlgorithmFlowNode): string {
   const { width, height } = sizeOf(node)
   const x = round(node.position.x)
@@ -89,32 +96,16 @@ function shapeMarkup(node: AlgorithmFlowNode): string {
 
   switch (node.data.kind) {
     case "junction":
-      return `<circle cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" r="${round(width / 2 - 1.5)}" fill="#ffffff" stroke="#475569" stroke-width="3" />`
+      return `<circle cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" r="${round(width / 2 - 1.5)}" fill="#ffffff" stroke="${EDGE_STROKE}" stroke-width="3" />`
     case "terminal":
       return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="32" fill="${fill}" stroke="${SHAPE_STROKE}" stroke-width="2" />`
     case "process":
       return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="5" fill="${fill}" stroke="${SHAPE_STROKE}" stroke-width="2" />`
     case "input":
-    case "output": {
-      // CSS clip-path: polygon(14% 0, 100% 0, 86% 100%, 0 100%)
-      const points = [
-        [x + width * 0.14, y],
-        [x + width, y],
-        [x + width * 0.86, y + height],
-        [x, y + height],
-      ]
-      return `<polygon points="${points.map(([px, py]) => `${round(px)},${round(py)}`).join(" ")}" fill="${fill}" stroke="${SHAPE_STROKE}" stroke-width="2" />`
-    }
-    case "decision": {
-      // CSS clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%)
-      const points = [
-        [x + width / 2, y],
-        [x + width, y + height / 2],
-        [x + width / 2, y + height],
-        [x, y + height / 2],
-      ]
-      return `<polygon points="${points.map(([px, py]) => `${round(px)},${round(py)}`).join(" ")}" fill="${fill}" stroke="${SHAPE_STROKE}" stroke-width="2" />`
-    }
+    case "output":
+      return outlinePolygon(SHAPE_OUTLINE_POINTS.io, x, y, width, height, fill)
+    case "decision":
+      return outlinePolygon(SHAPE_OUTLINE_POINTS.decision, x, y, width, height, fill)
   }
 }
 
@@ -157,15 +148,16 @@ function edgeMarkup(
   const routePoints = edge.data?.routePoints
   const isLoopBack = edge.data?.branch === "loop-back"
 
-  const [d, labelX, labelY] = routePoints && routePoints.length >= 2
-    ? roundedRoutePath(routePoints, from, to)
-    : isLoopBack
-      ? loopBackPath(from.x, from.y, to.x, to.y)
-      : roundedRoutePath(
-          [from, { x: from.x, y: (from.y + to.y) / 2 }, { x: to.x, y: (from.y + to.y) / 2 }, to],
-          from,
-          to,
-        )
+  const [d, labelX, labelY] =
+    routePoints && routePoints.length >= 2
+      ? roundedRoutePath(routePoints, from, to)
+      : isLoopBack
+        ? loopBackPath(from.x, from.y, to.x, to.y)
+        : roundedRoutePath(
+            [from, { x: from.x, y: (from.y + to.y) / 2 }, { x: to.x, y: (from.y + to.y) / 2 }, to],
+            from,
+            to,
+          )
 
   const stroke = isLoopBack ? LOOP_EDGE_STROKE : EDGE_STROKE
   const path =
@@ -227,10 +219,7 @@ function contentBounds(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]) {
   return { left, top, right, bottom }
 }
 
-export function flowToSvg(
-  nodes: AlgorithmFlowNode[],
-  edges: AlgorithmFlowEdge[],
-): FlowSvg {
+export function flowToSvg(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]): FlowSvg {
   if (nodes.length === 0) throw new Error("저장할 기호가 없어요.")
 
   const nodeById = new Map(nodes.map(node => [node.id, node]))

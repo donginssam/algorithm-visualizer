@@ -1,3 +1,10 @@
+import {
+  ASSIGN_GLYPH,
+  INPUT_LABEL,
+  INPUT_PREFIX,
+  OUTPUT_LABEL,
+  OUTPUT_PREFIX,
+} from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./flowTypes"
 
@@ -20,27 +27,39 @@ function statementFromNode(node: AlgorithmFlowNode): Statement {
   const label = node.data.label.trim()
 
   if (node.data.kind === "process") {
-    const arrowIndex = label.indexOf("←")
+    const arrowIndex = label.indexOf(ASSIGN_GLYPH)
     const target = label.slice(0, arrowIndex).trim()
     const expr = label.slice(arrowIndex + 1).trim()
     if (arrowIndex < 1 || !target || !expr) {
-      throw new FlowValidationError(`'${label || "처리"}' 기호는 '변수 ← 식' 형식으로 적어 주세요.`)
+      throw new FlowValidationError(
+        `'${label || "처리"}' 기호는 '변수 ${ASSIGN_GLYPH} 식' 형식으로 적어 주세요.`,
+      )
     }
     return { type: "assign", target, expr }
   }
 
   if (node.data.kind === "input") {
-    const variable = label.replace(/^입력\s*:\s*/, "").replace(/\s+입력$/, "").trim()
+    const variable = label
+      .replace(new RegExp(`^${INPUT_LABEL}\\s*:\\s*`), "")
+      .replace(new RegExp(`\\s+${INPUT_LABEL}$`), "")
+      .trim()
     if (!variable || variable === label) {
-      throw new FlowValidationError(`'${label || "입력"}' 기호는 '입력: 변수' 형식으로 적어 주세요.`)
+      throw new FlowValidationError(
+        `'${label || INPUT_LABEL}' 기호는 '${INPUT_PREFIX}변수' 형식으로 적어 주세요.`,
+      )
     }
     return { type: "input", variable }
   }
 
   if (node.data.kind === "output") {
-    const expr = label.replace(/^출력\s*:\s*/, "").replace(/\s+출력$/, "").trim()
+    const expr = label
+      .replace(new RegExp(`^${OUTPUT_LABEL}\\s*:\\s*`), "")
+      .replace(new RegExp(`\\s+${OUTPUT_LABEL}$`), "")
+      .trim()
     if (!expr || expr === label) {
-      throw new FlowValidationError(`'${label || "출력"}' 기호는 '출력: 값' 형식으로 적어 주세요.`)
+      throw new FlowValidationError(
+        `'${label || OUTPUT_LABEL}' 기호는 '${OUTPUT_PREFIX}값' 형식으로 적어 주세요.`,
+      )
     }
     return { type: "output", expr }
   }
@@ -56,14 +75,20 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
   const nodeIds = new Set<string>()
   for (const node of nodes) {
     if (nodeIds.has(node.id)) {
-      throw new FlowValidationError("같은 기호가 두 번 등록되어 있어요. 기호를 지운 뒤 다시 추가해 주세요.")
+      throw new FlowValidationError(
+        "같은 기호가 두 번 등록되어 있어요. 기호를 지운 뒤 다시 추가해 주세요.",
+      )
     }
     nodeIds.add(node.id)
   }
 
   const nodesById = new Map(nodes.map(node => [node.id, node]))
-  const starts = nodes.filter(node => node.data.kind === "terminal" && node.data.terminalRole === "start")
-  const ends = nodes.filter(node => node.data.kind === "terminal" && node.data.terminalRole === "end")
+  const starts = nodes.filter(
+    node => node.data.kind === "terminal" && node.data.terminalRole === "start",
+  )
+  const ends = nodes.filter(
+    node => node.data.kind === "terminal" && node.data.terminalRole === "end",
+  )
 
   if (starts.length !== 1) {
     throw new FlowValidationError("시작 기호가 하나 있어야 해요.")
@@ -141,7 +166,9 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
     const yes = branchEdges.filter(edge => branchOf(edge) === "yes")
     const no = branchEdges.filter(edge => branchOf(edge) === "no")
     if (branchEdges.length !== 2 || yes.length !== 1 || no.length !== 1) {
-      throw new FlowValidationError(`'${node.data.label}' 판단에는 '예'와 '아니오' 화살표가 하나씩 필요해요.`)
+      throw new FlowValidationError(
+        `'${node.data.label}' 판단에는 '예'와 '아니오' 화살표가 하나씩 필요해요.`,
+      )
     }
     return { yes: yes[0], no: no[0] }
   }
@@ -178,10 +205,14 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
         if (node.data.controlKind === "loop") {
           const loopPath = parsePath(branches.yes.target, new Set([node.id]))
           if (loopPath.stopId !== node.id) {
-            throw new FlowValidationError(`'${condition}' 반복의 '예' 흐름이 판단 기호로 돌아오지 않아요.`)
+            throw new FlowValidationError(
+              `'${condition}' 반복의 '예' 흐름이 판단 기호로 돌아오지 않아요.`,
+            )
           }
           if (loopPath.body.length === 0) {
-            throw new FlowValidationError(`'${condition}' 반복 안에 실행할 기호를 하나 이상 연결해 주세요.`)
+            throw new FlowValidationError(
+              `'${condition}' 반복 안에 실행할 기호를 하나 이상 연결해 주세요.`,
+            )
           }
           body.push({ type: "loop", condition, body: loopPath.body })
           currentId = branches.no.target
@@ -191,14 +222,18 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
         const thenPath = parsePath(branches.yes.target)
         const elsePath = parsePath(branches.no.target)
         if (thenPath.stopId !== elsePath.stopId) {
-          throw new FlowValidationError(`'${condition}'의 '예/아니오' 흐름이 같은 곳에서 만나야 해요.`)
+          throw new FlowValidationError(
+            `'${condition}'의 '예/아니오' 흐름이 같은 곳에서 만나야 해요.`,
+          )
         }
         const junction = nodesById.get(thenPath.stopId)
         if (!junction || junction.data.kind !== "junction") {
           throw new FlowValidationError(`'${condition}'의 두 흐름 뒤에 합류점이 필요해요.`)
         }
         if (thenPath.body.length === 0) {
-          throw new FlowValidationError(`'${condition}'의 '예' 흐름에 실행할 기호를 하나 이상 연결해 주세요.`)
+          throw new FlowValidationError(
+            `'${condition}'의 '예' 흐름에 실행할 기호를 하나 이상 연결해 주세요.`,
+          )
         }
         if ((incoming.get(junction.id) ?? []).length !== 2) {
           throw new FlowValidationError(`'${condition}'의 합류점에는 화살표 두 개가 들어와야 해요.`)
@@ -214,7 +249,9 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
 
       const nextEdges = outgoing.get(node.id) ?? []
       if (nextEdges.some(edge => branchOf(edge) === "yes" || branchOf(edge) === "no")) {
-        throw new FlowValidationError(`'${node.data.label}'의 '예/아니오' 화살표는 판단 기호에서만 사용할 수 있어요.`)
+        throw new FlowValidationError(
+          `'${node.data.label}'의 '예/아니오' 화살표는 판단 기호에서만 사용할 수 있어요.`,
+        )
       }
       body.push(statementFromNode(node))
       currentId = requireSingleNext(node).target

@@ -30,8 +30,8 @@ export function ExamplesPage({ onLoad }: ExamplesPageProps) {
       <div className="examples-intro">
         <h2>예제로 시작해 보기</h2>
         <p>
-          마음에 드는 예제를 불러오면 의사코드와 순서도가 함께 채워집니다.
-          내용을 고쳐 가며 알고리즘이 어떻게 바뀌는지 살펴보세요.
+          마음에 드는 예제를 불러오면 의사코드와 순서도가 함께 채워집니다. 내용을 고쳐 가며
+          알고리즘이 어떻게 바뀌는지 살펴보세요.
         </p>
       </div>
 

@@ -77,7 +77,8 @@ export function SyntaxHelp() {
         <ul>
           <li>시작과 끝 사이의 문장은 공백 2칸 들여쓰고, 반복·조건 안은 2칸 더 들여씁니다.</li>
           <li>
-            <code>&lt;-</code>는 <code>←</code>로, <code>*</code>는 <code>×</code>로 저절로 바뀝니다.
+            <code>&lt;-</code>는 <code>←</code>로, <code>*</code>는 <code>×</code>로 저절로
+            바뀝니다.
           </li>
         </ul>
       </div>

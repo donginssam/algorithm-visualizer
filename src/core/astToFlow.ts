@@ -1,5 +1,7 @@
 import dagre from "@dagrejs/dagre"
 import { MarkerType, type EdgeMarker } from "@xyflow/react"
+import { EDGE_COLOR, LOOP_EDGE_COLOR } from "../constants/flowColors"
+import { ASSIGN_GLYPH, INPUT_PREFIX, OUTPUT_PREFIX } from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
 import type {
   AlgorithmFlowEdge,
@@ -10,7 +12,7 @@ import type {
   FlowNodeData,
 } from "./flowTypes"
 
-/** 도형 크기. src/index.css의 .flow-shape 계열 규칙과 반드시 같아야 합니다. */
+/** 도형 크기. styles/index.scss의 .flow-shape 계열 규칙과 반드시 같아야 합니다. */
 export const NODE_SIZES: Record<FlowNodeData["kind"], { width: number; height: number }> = {
   terminal: { width: 172, height: 64 },
   input: { width: 190, height: 76 },
@@ -19,10 +21,6 @@ export const NODE_SIZES: Record<FlowNodeData["kind"], { width: number; height: n
   decision: { width: 220, height: 124 },
   junction: { width: 18, height: 18 },
 }
-
-/** 화살표 색 — src/index.css의 --edge-stroke/--accent-alt, flowToSvg.ts의 EDGE_STROKE와 같은 값. */
-const EDGE_COLOR = "#475569"
-const LOOP_EDGE_COLOR = "#7c5cf0"
 
 /**
  * 화살촉 크기.
@@ -50,18 +48,22 @@ export function arrowMarker(branch: FlowEdgeData["branch"]): EdgeMarker {
   }
 }
 
-function flowNode(id: string, data: FlowNodeData, type: AlgorithmFlowNode["type"]): AlgorithmFlowNode {
+function flowNode(
+  id: string,
+  data: FlowNodeData,
+  type: AlgorithmFlowNode["type"],
+): AlgorithmFlowNode {
   return { id, type, data, position: { x: 0, y: 0 } }
 }
 
 function statementData(statement: Exclude<Statement, { type: "loop" | "if" }>): FlowNodeData {
   switch (statement.type) {
     case "assign":
-      return { kind: "process", label: `${statement.target} ← ${statement.expr}` }
+      return { kind: "process", label: `${statement.target} ${ASSIGN_GLYPH} ${statement.expr}` }
     case "input":
-      return { kind: "input", label: `입력: ${statement.variable}` }
+      return { kind: "input", label: `${INPUT_PREFIX}${statement.variable}` }
     case "output":
-      return { kind: "output", label: `출력: ${statement.expr}` }
+      return { kind: "output", label: `${OUTPUT_PREFIX}${statement.expr}` }
   }
 }
 
@@ -104,18 +106,19 @@ function decisionSides(
     const yesX = centerX(outgoing.find(edge => edge.data?.branch === "yes")?.target)
     const noX = centerX(outgoing.find(edge => edge.data?.branch === "no")?.target)
     // 두 갈래가 같은 열에 놓였다면(합류점으로 바로 가는 경우 등) 기본값을 씁니다.
-    const decided = yesX === undefined || noX === undefined || Math.abs(yesX - noX) < 1
-      ? yesSideOf({ ...node.data, yesSide: undefined })
-      : yesX < noX
-        ? "left"
-        : "right"
+    const decided =
+      yesX === undefined || noX === undefined || Math.abs(yesX - noX) < 1
+        ? yesSideOf({ ...node.data, yesSide: undefined })
+        : yesX < noX
+          ? "left"
+          : "right"
     sides.set(node.id, decided)
   }
 
   return sides
 }
 
-export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
+function layoutFlowGraph(graph: FlowGraph): FlowGraph {
   const layoutGraph = new dagre.graphlib.Graph({ multigraph: true })
   layoutGraph.setDefaultEdgeLabel(() => ({}))
   layoutGraph.setGraph({ rankdir: "TB", nodesep: 54, ranksep: 86, marginx: 36, marginy: 28 })
@@ -171,7 +174,14 @@ export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
       const targetSize = target ? NODE_SIZES[target.data.kind] : NODE_SIZES.decision
       const sourceBottom = (source?.position.y ?? 0) + sourceSize.height
       const targetTop = target?.position.y ?? 0
-      return { edge, source, target, sourceSize, targetSize, span: Math.abs(sourceBottom - targetTop) }
+      return {
+        edge,
+        source,
+        target,
+        sourceSize,
+        targetSize,
+        span: Math.abs(sourceBottom - targetTop),
+      }
     })
     .sort((a, b) => a.span - b.span)
   const loopLaneById = new Map(
@@ -188,11 +198,12 @@ export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
       const targetSize = NODE_SIZES[target.data.kind]
       const branch = edge.data?.branch
       // 예/아니오는 마름모의 좌우 꼭짓점에서 각자의 방향으로 나갑니다(§2 교과서 표기).
-      const exitSide = source.data.kind === "decision" && (branch === "yes" || branch === "no")
-        ? branch === "yes"
-          ? yesSideOf(source.data)
-          : oppositeSide(yesSideOf(source.data))
-        : null
+      const exitSide =
+        source.data.kind === "decision" && (branch === "yes" || branch === "no")
+          ? branch === "yes"
+            ? yesSideOf(source.data)
+            : oppositeSide(yesSideOf(source.data))
+          : null
       const sourcePoint = exitSide
         ? {
             x: exitSide === "left" ? source.position.x : source.position.x + sourceSize.width,
@@ -211,9 +222,10 @@ export function layoutFlowGraph(graph: FlowGraph): FlowGraph {
       const laneX = exitSide === "left" ? graphLeft - 34 : graphRight + 34
       // 그 밖의 갈래는 목적지 열까지 옆으로 나간 뒤 내려갑니다. 목적지가 마름모
       // 바로 아래에 있으면 도형을 뚫지 않도록 최소한 옆으로 비켜 놓습니다.
-      const turnX = exitSide === "left"
-        ? Math.min(targetPoint.x, sourcePoint.x - 12)
-        : Math.max(targetPoint.x, sourcePoint.x + 12)
+      const turnX =
+        exitSide === "left"
+          ? Math.min(targetPoint.x, sourcePoint.x - 12)
+          : Math.max(targetPoint.x, sourcePoint.x + 12)
       const middleY = sourcePoint.y + (targetPoint.y - sourcePoint.y) / 2
       const routePoints = exitSide
         ? [
@@ -276,19 +288,25 @@ export function astToFlow(program: Program): FlowGraph {
    */
   const hasEnd = program.body.length > 0
   const nodes: AlgorithmFlowNode[] = [
-    flowNode("terminal-start", { kind: "terminal", label: "시작", terminalRole: "start" }, "terminal"),
+    flowNode(
+      "terminal-start",
+      { kind: "terminal", label: "시작", terminalRole: "start" },
+      "terminal",
+    ),
     ...(hasEnd
-      ? [flowNode("terminal-end", { kind: "terminal", label: "끝", terminalRole: "end" }, "terminal")]
+      ? [
+          flowNode(
+            "terminal-end",
+            { kind: "terminal", label: "끝", terminalRole: "end" },
+            "terminal",
+          ),
+        ]
       : []),
   ]
   const edges: AlgorithmFlowEdge[] = []
   let edgeSequence = 0
 
-  const addEdge = (
-    source: string,
-    target: string,
-    branch: FlowEdgeData["branch"] = "next",
-  ) => {
+  const addEdge = (source: string, target: string, branch: FlowEdgeData["branch"] = "next") => {
     const isBranch = branch === "yes" || branch === "no"
     edges.push({
       id: `edge-${edgeSequence++}`,
@@ -323,7 +341,11 @@ export function astToFlow(program: Program): FlowGraph {
           ),
         )
         exits.forEach(exit => addEdge(exit.id, id, exit.branch))
-        const bodyExits = buildBlock(statement.body, [{ id, branch: "yes" }], `${path}-${index}-loop`)
+        const bodyExits = buildBlock(
+          statement.body,
+          [{ id, branch: "yes" }],
+          `${path}-${index}-loop`,
+        )
         bodyExits.forEach(exit => addEdge(exit.id, id, "loop-back"))
         exits = [{ id, branch: "no" }]
         return
@@ -332,12 +354,20 @@ export function astToFlow(program: Program): FlowGraph {
       if (statement.type === "if") {
         const junctionId = `${id}-junction`
         nodes.push(
-          flowNode(id, { kind: "decision", label: statement.condition, controlKind: "if" }, "decision"),
+          flowNode(
+            id,
+            { kind: "decision", label: statement.condition, controlKind: "if" },
+            "decision",
+          ),
           flowNode(junctionId, { kind: "junction", label: "합류" }, "junction"),
         )
         exits.forEach(exit => addEdge(exit.id, id, exit.branch))
 
-        const thenExits = buildBlock(statement.thenBody, [{ id, branch: "yes" }], `${path}-${index}-then`)
+        const thenExits = buildBlock(
+          statement.thenBody,
+          [{ id, branch: "yes" }],
+          `${path}-${index}-then`,
+        )
         const elseExits = statement.elseBody.length
           ? buildBlock(statement.elseBody, [{ id, branch: "no" }], `${path}-${index}-else`)
           : [{ id, branch: "no" as const }]

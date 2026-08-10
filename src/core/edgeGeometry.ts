@@ -10,11 +10,11 @@ export interface RoutePoint {
   y: number
 }
 
-export function distance(a: RoutePoint, b: RoutePoint): number {
+function distance(a: RoutePoint, b: RoutePoint): number {
   return Math.hypot(b.x - a.x, b.y - a.y)
 }
 
-export function pointToward(from: RoutePoint, to: RoutePoint, amount: number): RoutePoint {
+function pointToward(from: RoutePoint, to: RoutePoint, amount: number): RoutePoint {
   const length = distance(from, to)
   if (length === 0) return from
   const ratio = amount / length
@@ -25,7 +25,7 @@ export function pointToward(from: RoutePoint, to: RoutePoint, amount: number): R
 }
 
 /** 꺾인 경로의 길이 기준 중간 지점 — 예/아니오 라벨을 놓는 자리입니다. */
-export function pathMidpoint(points: RoutePoint[]): RoutePoint {
+function pathMidpoint(points: RoutePoint[]): RoutePoint {
   const lengths = points.slice(1).map((point, index) => distance(points[index], point))
   const targetDistance = lengths.reduce((sum, length) => sum + length, 0) / 2
   let travelled = 0
@@ -47,8 +47,8 @@ export function roundedRoutePath(
   source: RoutePoint,
   target: RoutePoint,
 ) {
-  const points = [source, ...routePoints.slice(1, -1), target].filter((point, index, all) =>
-    index === 0 || distance(all[index - 1], point) > 0.5,
+  const points = [source, ...routePoints.slice(1, -1), target].filter(
+    (point, index, all) => index === 0 || distance(all[index - 1], point) > 0.5,
   )
 
   if (points.length < 2) {
@@ -72,12 +72,7 @@ export function roundedRoutePath(
 }
 
 /** 경로 정보가 없는 반복 화살표는 오른쪽으로 크게 우회하는 곡선으로 그립니다. */
-export function loopBackPath(
-  sourceX: number,
-  sourceY: number,
-  targetX: number,
-  targetY: number,
-) {
+export function loopBackPath(sourceX: number, sourceY: number, targetX: number, targetY: number) {
   const sideX = Math.max(sourceX, targetX) + Math.max(130, Math.abs(sourceX - targetX) / 2 + 80)
   const path = [
     `M ${sourceX} ${sourceY}`,

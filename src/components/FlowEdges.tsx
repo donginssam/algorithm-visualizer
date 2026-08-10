@@ -1,9 +1,4 @@
-import {
-  BaseEdge,
-  EdgeToolbar,
-  getSmoothStepPath,
-  type EdgeProps,
-} from "@xyflow/react"
+import { BaseEdge, EdgeToolbar, getSmoothStepPath, type EdgeProps } from "@xyflow/react"
 import { createContext, useContext } from "react"
 import { loopBackPath, roundedRoutePath } from "../core/edgeGeometry"
 import type { AlgorithmFlowEdge } from "../core/flowTypes"
@@ -37,23 +32,20 @@ export function FlowEdge({
   selected,
 }: EdgeProps<AlgorithmFlowEdge>) {
   const actions = useContext(EdgeActionContext)
-  const [path, labelX, labelY] = data?.routePoints && data.routePoints.length >= 2
-    ? roundedRoutePath(
-        data.routePoints,
-        { x: sourceX, y: sourceY },
-        { x: targetX, y: targetY },
-      )
-    : data?.branch === "loop-back"
-      ? loopBackPath(sourceX, sourceY, targetX, targetY)
-      : getSmoothStepPath({
-          sourceX,
-          sourceY,
-          targetX,
-          targetY,
-          sourcePosition,
-          targetPosition,
-          borderRadius: 12,
-        })
+  const [path, labelX, labelY] =
+    data?.routePoints && data.routePoints.length >= 2
+      ? roundedRoutePath(data.routePoints, { x: sourceX, y: sourceY }, { x: targetX, y: targetY })
+      : data?.branch === "loop-back"
+        ? loopBackPath(sourceX, sourceY, targetX, targetY)
+        : getSmoothStepPath({
+            sourceX,
+            sourceY,
+            targetX,
+            targetY,
+            sourcePosition,
+            targetPosition,
+            borderRadius: 12,
+          })
 
   return (
     <>

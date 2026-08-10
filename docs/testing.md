@@ -7,12 +7,15 @@ pnpm test
 pnpm build
 ```
 
-| 명령어 | 검증 내용 |
-| --- | --- |
-| `pnpm test` | Vitest 단위·변환 테스트를 한 번 실행 |
-| `pnpm build` | TypeScript project build와 Vite 배포 빌드 |
-| `pnpm dev` | 수동 브라우저 점검용 개발 서버 |
-| `pnpm preview` | 생성된 `dist` 결과 미리보기 |
+| 명령어              | 검증 내용                                     |
+| ------------------- | --------------------------------------------- |
+| `pnpm test`         | Vitest 단위·변환 테스트를 한 번 실행          |
+| `pnpm format`       | TypeScript·Sass·설정 파일에 Prettier 적용     |
+| `pnpm format:check` | 소스와 설정이 Prettier 형식인지 검사          |
+| `pnpm typecheck`    | 단일 `tsconfig.json`을 사용한 TypeScript 검사 |
+| `pnpm build`        | Prettier·TypeScript 검사와 Vite 배포 빌드     |
+| `pnpm dev`          | 수동 브라우저 점검용 개발 서버                |
+| `pnpm preview`      | 생성된 `dist` 결과 미리보기                   |
 
 기능 변경 후에는 최소한 `pnpm test`와 `pnpm build`를 모두 실행합니다.
 
@@ -123,16 +126,16 @@ parsePseudocode(astToText(program)) === program
 
 이 프로젝트에는 의도적으로 여러 표현이 같은 값을 공유하는 영역이 있습니다. 다음 표의 한쪽을 바꿀 때 반대쪽도 반드시 확인합니다.
 
-| 기준 | 연결된 구현 |
-| --- | --- |
-| AST 문장 타입 | parser, astToText, astToFlow, flowToAst, 노드 편집 UI |
-| 빈 프로그램 규칙 | parser, astToText, astToFlow, flowToAst, 초기 store |
-| 저장 형식 | `workspaceStore` 직렬화·검증, store 초깃값, `FlowCanvas`의 `restoredGraph` |
-| 노드 실제 크기 | CSS 도형 치수, `NODE_SIZES`, dagre, edge geometry, PNG |
-| 판단 `yesSide` | 자동 배치, React Flow Handle, routePoints, PNG source point |
-| 기호 윤곽 좌표 | 팔레트 SVG, 캔버스 SVG, 저장 SVG |
-| 화살표 색·굵기 | CSS 변수, React Flow marker, 저장 SVG marker |
-| 그래프 범위 | 자동 viewport 맞춤, PNG export bounds |
+| 기준             | 연결된 구현                                                                |
+| ---------------- | -------------------------------------------------------------------------- |
+| AST 문장 타입    | parser, astToText, astToFlow, flowToAst, 노드 편집 UI                      |
+| 빈 프로그램 규칙 | parser, astToText, astToFlow, flowToAst, 초기 store                        |
+| 저장 형식        | `workspaceStore` 직렬화·검증, store 초깃값, `FlowCanvas`의 `restoredGraph` |
+| 노드 실제 크기   | CSS 도형 치수, `NODE_SIZES`, dagre, edge geometry, PNG                     |
+| 판단 `yesSide`   | 자동 배치, React Flow Handle, routePoints, PNG source point                |
+| 기호 윤곽 좌표   | 팔레트 SVG, 캔버스 SVG, 저장 SVG                                           |
+| 화살표 색·굵기   | CSS 변수, React Flow marker, 저장 SVG marker                               |
+| 그래프 범위      | 자동 viewport 맞춤, PNG export bounds                                      |
 
 ## 알려진 제한과 후속 작업
 

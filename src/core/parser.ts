@@ -76,7 +76,11 @@ function parseSimpleStatement(line: SourceLine): Statement {
       throw new PseudocodeParseError(line.number, "← 앞에 값을 저장할 변수 이름이 필요해요.")
     }
     if (!expr) {
-      throw new PseudocodeParseError(line.number, "← 뒤에 저장할 값이나 계산식이 필요해요.", arrowIndex + 2)
+      throw new PseudocodeParseError(
+        line.number,
+        "← 뒤에 저장할 값이나 계산식이 필요해요.",
+        arrowIndex + 2,
+      )
     }
     return { type: "assign", target, expr }
   }
@@ -144,7 +148,10 @@ export function parsePseudocode(source: string): Program {
         cursor += 1
         const body = parseBlock(expectedIndent + 2)
         if (body.length === 0) {
-          throw new PseudocodeParseError(line.number, "반복할 문장을 다음 줄에 공백 2칸 더 들여써 주세요.")
+          throw new PseudocodeParseError(
+            line.number,
+            "반복할 문장을 다음 줄에 공백 2칸 더 들여써 주세요.",
+          )
         }
         statements.push({ type: "loop", condition, body })
         continue
@@ -156,16 +163,26 @@ export function parsePseudocode(source: string): Program {
         cursor += 1
         const thenBody = parseBlock(expectedIndent + 2)
         if (thenBody.length === 0) {
-          throw new PseudocodeParseError(line.number, "조건이 참일 때 할 일을 다음 줄에 들여써 주세요.")
+          throw new PseudocodeParseError(
+            line.number,
+            "조건이 참일 때 할 일을 다음 줄에 들여써 주세요.",
+          )
         }
 
         let elseBody: Statement[] = []
         const maybeElse = lines[cursor]
-        if (cursor < bodyEnd && maybeElse.indent === expectedIndent && maybeElse.text === "[아니면]") {
+        if (
+          cursor < bodyEnd &&
+          maybeElse.indent === expectedIndent &&
+          maybeElse.text === "[아니면]"
+        ) {
           cursor += 1
           elseBody = parseBlock(expectedIndent + 2)
           if (elseBody.length === 0) {
-            throw new PseudocodeParseError(maybeElse.number, "'아니면'일 때 할 일을 다음 줄에 들여써 주세요.")
+            throw new PseudocodeParseError(
+              maybeElse.number,
+              "'아니면'일 때 할 일을 다음 줄에 들여써 주세요.",
+            )
           }
         }
 
@@ -184,7 +201,10 @@ export function parsePseudocode(source: string): Program {
   if (cursor < bodyEnd) {
     const line = lines[cursor]
     if (line.text === "[아니면]") {
-      throw new PseudocodeParseError(line.number, "'[아니면]'은 '[만약 ...]' 바로 뒤에서만 사용할 수 있어요.")
+      throw new PseudocodeParseError(
+        line.number,
+        "'[아니면]'은 '[만약 ...]' 바로 뒤에서만 사용할 수 있어요.",
+      )
     }
     throw new PseudocodeParseError(line.number, "시작과 끝 사이의 문장은 공백 2칸 들여써 주세요.")
   }

@@ -1,0 +1,103 @@
+$symbol-colors: (
+  terminal: var(--symbol-terminal),
+  io: var(--symbol-io),
+  process: var(--symbol-process),
+  decision: var(--symbol-decision),
+);
+
+/*
+ * 디자인 토큰
+ * - 순서도 기호 4색(--symbol-*)은 교육과정 표준이므로 값을 바꾸지 않습니다.
+ * - 노드 도형의 width/height는 core/astToFlow.ts의 NODE_SIZES와 짝을 이룹니다.
+ */
+:root {
+  /* 표면 */
+  --surface-page: #eef2fa;
+  --surface-page-tint: #fdf6e9;
+  --surface-card: #fff;
+  --surface-muted: #f6f8fd;
+  --surface-sunken: #e9eff8;
+
+  /* 테두리 */
+  --border-soft: #e3e9f4;
+  --border-medium: #cfdaea;
+  --border-input: #a7b6cd;
+
+  /* 글자 */
+  --text-strong: #16203a;
+  --text-body: #35415e;
+  --text-muted: #6c7b96;
+  --text-on-accent: #fff;
+
+  /* 브랜드 — 의사코드 쪽 */
+  --accent: #3f6ae1;
+  --accent-strong: #2c4fc0;
+  --accent-soft: #e6edff;
+  --accent-ink: #23409c;
+
+  /* 브랜드 — 순서도 쪽 (반복 화살표와 같은 계열) */
+  --accent-alt: #7c5cf0;
+  --accent-alt-soft: #ece8ff;
+  --accent-alt-ink: #4f3496;
+
+  /* 의미색 */
+  --ok-fg: #12694a;
+  --ok-bg: #e2f7ee;
+  --notice-fg: #8a5300;
+  --notice-bg: #fff4de;
+  --notice-border: #f5dcae;
+  --danger-fg: #b42318;
+  --danger-bg: #ffefed;
+  --danger-border: #ffd2cc;
+
+  /* 순서도 기호 — 교육과정 표준 */
+  --symbol-terminal: #ffe066;
+  --symbol-io: #ffb3c6;
+  --symbol-process: #a8d8ff;
+  --symbol-decision: #b7e4c7;
+  --symbol-stroke: rgb(30 41 59 / 42%);
+  --symbol-stroke-soft: rgb(30 41 59 / 25%);
+  --symbol-ink: #111827;
+
+  /* 순서도 화살표 — core/flowToSvg.ts의 EDGE_STROKE와 같은 값이어야 합니다. */
+  --edge-stroke: #475569;
+  --edge-width: 2.2;
+
+  /* 형태 */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --radius-pill: 999px;
+
+  --shadow-xs: 0 1px 2px rgb(22 32 58 / 6%);
+  --shadow-sm: 0 4px 14px rgb(22 32 58 / 7%);
+  --shadow-md: 0 12px 30px rgb(22 32 58 / 9%);
+  --shadow-lg: 0 22px 56px rgb(22 32 58 / 13%);
+  --shadow-pop: 0 10px 26px rgb(22 32 58 / 18%);
+  --shadow-shape: drop-shadow(0 5px 8px rgb(15 23 42 / 11%));
+
+  /* 간격 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+
+  /* 터치 — 최소 타깃 크기 */
+  --touch-min: 44px;
+  --focus-ring: rgb(63 106 225 / 70%);
+
+  font-family:
+    "Pretendard Variable",
+    Pretendard,
+    -apple-system,
+    "Apple SD Gothic Neo",
+    "Malgun Gothic",
+    sans-serif;
+  color: var(--text-strong);
+  background: var(--surface-page);
+  font-synthesis: none;
+}
