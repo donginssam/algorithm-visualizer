@@ -1210,8 +1210,37 @@ h2 {
   margin-top: var(--space-5);
 }
 
+/* 대화상자 버튼도 .btn과 같은 모양·크기를 씁니다(터치 최소 44px). */
 .dialog-actions button {
   min-width: 84px;
+  min-height: var(--touch-min);
+  padding: 0 16px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
+  background: var(--surface-card);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dialog-actions button.primary {
+  border-color: transparent;
+  color: var(--text-on-accent);
+  background: var(--accent);
+}
+
+.dialog-actions button.danger {
+  border-color: transparent;
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+}
+
+.dialog-text {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 /* =========================================================================

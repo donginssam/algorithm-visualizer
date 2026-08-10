@@ -54,6 +54,15 @@ parsePseudocode(astToText(program)) === program
 - 시작 기호만 있는 그래프 저장
 - 노드가 하나도 없을 때의 안내
 
+### `workspaceStore.test.ts`
+
+`localStorage` 없이 직렬화·검증 순수 함수만 검사합니다.
+
+- 순서도와 의사코드를 손실 없이 담았다가 되돌리기(위치·경로·라벨 포함)
+- 아직 연결하지 않은 기호를 그대로 복원(자동 저장의 핵심)
+- `measured`·`selected`·`dragging`은 저장하지 않음
+- 깨진 JSON, 예전 버전, 모양이 어긋난 값은 무시하고 빈 화면에서 시작
+
 ## 변경 유형별 점검
 
 ### 의사코드 문법 변경
@@ -118,6 +127,7 @@ parsePseudocode(astToText(program)) === program
 | --- | --- |
 | AST 문장 타입 | parser, astToText, astToFlow, flowToAst, 노드 편집 UI |
 | 빈 프로그램 규칙 | parser, astToText, astToFlow, flowToAst, 초기 store |
+| 저장 형식 | `workspaceStore` 직렬화·검증, store 초깃값, `FlowCanvas`의 `restoredGraph` |
 | 노드 실제 크기 | CSS 도형 치수, `NODE_SIZES`, dagre, edge geometry, PNG |
 | 판단 `yesSide` | 자동 배치, React Flow Handle, routePoints, PNG source point |
 | 기호 윤곽 좌표 | 팔레트 SVG, 캔버스 SVG, 저장 SVG |
@@ -127,7 +137,7 @@ parsePseudocode(astToText(program)) === program
 ## 알려진 제한과 후속 작업
 
 - 실제 터치 크롬북에서 핀치, 드래그, 화면 키보드를 최종 확인해야 합니다.
-- 작업은 새로 고치면 초기화되며 자동 저장하지 않습니다.
+- 자동 저장은 브라우저마다 한 벌만 보관하며, 여러 작업을 이름 붙여 저장할 수는 없습니다.
 - 자유로운 한국어 조건식은 평가하지 않으므로 실행 애니메이션이 없습니다.
 - 휴대폰과 태블릿 세로 모드는 지원하지 않습니다.
 - 노드가 매우 많을 때의 자동 배치는 실제 수업 사례를 모아 추가로 다듬을 필요가 있습니다.

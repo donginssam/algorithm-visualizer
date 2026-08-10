@@ -53,6 +53,8 @@ interface Program {
 | `revision` | 외부에서 새 AST가 들어왔음을 캔버스에 알리는 번호 |
 | `source` | 변경 출처: `text`, `flow`, `example` |
 
+초깃값은 `localStorage`에 저장해 둔 작업 내용이 있으면 그것으로 채웁니다(아래 [작업 내용 자동 저장](#작업-내용-자동-저장)).
+
 ### 의사코드에서 수정할 때
 
 1. `updateCodeDraft`가 입력값을 즉시 `code`에 보관합니다.
@@ -69,6 +71,23 @@ interface Program {
 4. 실패하면 그래프는 편집 가능한 상태로 남겨 두고 `graphMessage`에 다음 행동을 안내합니다.
 
 `FlowCanvas`는 `source === "flow"`인 갱신을 다시 AST에서 그래프로 만들지 않습니다. 사용자가 옮긴 위치를 자동 배치로 덮거나 양방향 갱신이 순환하는 것을 막기 위한 규칙입니다. 의사코드와 예제에서 들어온 새 `revision`만 다시 배치합니다.
+
+## 작업 내용 자동 저장
+
+브라우저를 닫거나 새로 고쳐도 하던 작업이 남도록 [`src/core/workspaceStore.ts`](../src/core/workspaceStore.ts)가 `localStorage`에 상태를 담습니다.
+
+저장하는 것은 **AST가 아니라 순서도 그래프 자체**입니다. 만드는 도중에는 아직 연결하지 않은 기호가 있어 `flowToAst`가 실패하는데, 그 미완성 상태야말로 잃어버리면 안 되는 내용이기 때문입니다. 저장 값은 `code`(쓰다 만 글자 그대로), `program`(마지막으로 유효했던 AST), `source`, `nodes`, `edges`입니다.
+
+| 규칙 | 이유 |
+| --- | --- |
+| 키에 버전을 둔다(`algorithm-visualizer/workspace/v1`) | 저장 형식이 바뀌면 예전 값을 읽지 않고 버립니다 |
+| `parseWorkspace`가 모양을 검사해 어긋나면 `null` | 손상된 값 때문에 화면이 깨진 채 열리는 것보다 빈 화면이 낫습니다 |
+| `measured`·`selected`·`dragging`은 저장하지 않는다 | React Flow가 실행 중에 붙이는 값이라 다음에 열 때 다시 측정됩니다 |
+| `localStorage` 접근은 모두 `try/catch` | 사생활 보호 모드처럼 막혀 있어도 편집은 계속할 수 있어야 합니다 |
+
+- **저장**: [`src/App.tsx`](../src/App.tsx)가 `code`·`program`·`source` 변화와 `FlowCanvas`의 `onGraphChange`(기호 추가·삭제·연결·편집·이동)를 받아 400ms 디바운스로 저장합니다. `pagehide`에서 예약된 저장을 즉시 흘려보냅니다.
+- **복원**: store가 만들어질 때 한 번 읽어 `program`·`code`·`source`·`parseError`의 초깃값으로 씁니다. 그래프는 `FlowCanvas`의 `restoredGraph` prop으로 넘어가고, **첫 자동 배치를 한 번 건너뜁니다**. 그러지 않으면 AST에서 다시 그리면서 연결하지 않은 기호가 사라집니다. 복원한 그래프가 미완성이면 검증만 다시 돌려 `graphMessage`를 띄웁니다(의사코드 초안은 건드리지 않습니다).
+- **초기화**: 상단 오른쪽 `초기화` 버튼이 확인 창을 띄우고, 확인하면 예약된 저장을 취소한 뒤 저장 값을 지우고 store를 빈 프로그램으로 되돌립니다.
 
 ## 화면과 라우팅
 
@@ -96,7 +115,6 @@ interface Program {
 ## 현재 범위에 포함하지 않은 기능
 
 - 조건식 평가와 한 단계씩 실행하는 애니메이션
-- `localStorage`를 이용한 작업 자동 저장
 - 휴대폰과 태블릿 세로 모드용 별도 레이아웃
 - 다크 모드
 

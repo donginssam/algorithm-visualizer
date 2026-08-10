@@ -5,9 +5,11 @@ import { ExamplesPage } from "./components/ExamplesPage"
 import { FlowCanvas, type FlowCanvasHandle } from "./components/FlowCanvas"
 import { Palette, type PaletteItemKind } from "./components/Palette"
 import { SyntaxHelp } from "./components/SyntaxHelp"
+import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./core/flowTypes"
+import { clearWorkspace, saveWorkspace } from "./core/workspaceStore"
 import type { Example } from "./examples"
 import { navigateTo, useHashRoute } from "./hooks/useHashRoute"
-import { useAppStore } from "./store/useAppStore"
+import { restoredWorkspace, useAppStore } from "./store/useAppStore"
 
 interface ExportState {
   kind: "idle" | "working" | "done" | "failed"
@@ -15,6 +17,14 @@ interface ExportState {
 }
 
 const IDLE_EXPORT: ExportState = { kind: "idle", message: "" }
+
+/** 작업 내용을 저장하기까지 기다리는 시간. 글자·기호를 이어서 다룰 때 매번 쓰지 않습니다. */
+const SAVE_DELAY = 400
+
+/** 저장해 둔 순서도. 화면을 만들기 전에 정해지므로 다시 그려도 바뀌지 않습니다. */
+const RESTORED_GRAPH = restoredWorkspace
+  ? { nodes: restoredWorkspace.nodes, edges: restoredWorkspace.edges }
+  : null
 
 function BrandMark() {
   return (
@@ -57,17 +67,69 @@ export default function App() {
     beginFlowEdit,
     setProgram,
     setGraphMessage,
+    reset,
   } = useAppStore()
   const [pendingKind, setPendingKind] = useState<PaletteItemKind | null>(null)
   const [exportState, setExportState] = useState<ExportState>(IDLE_EXPORT)
+  const [confirmingReset, setConfirmingReset] = useState(false)
   const debounceRef = useRef<number | null>(null)
   const exportTimerRef = useRef<number | null>(null)
+  const saveTimerRef = useRef<number | null>(null)
+  const graphRef = useRef<{ nodes: AlgorithmFlowNode[]; edges: AlgorithmFlowEdge[] }>(
+    RESTORED_GRAPH ?? { nodes: [], edges: [] },
+  )
   const flowCanvasRef = useRef<FlowCanvasHandle>(null)
   const route = useHashRoute()
+
+  /*
+   * 작업 내용 저장.
+   *
+   * 순서도 그래프를 그대로 담습니다. 만드는 도중에는 아직 연결하지 않은 기호가
+   * 있어 AST로 바꿀 수 없는데, 그 상태야말로 잃어버리면 안 되기 때문입니다.
+   */
+  const saveNow = useCallback(() => {
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    const { code: latestCode, program: latestProgram, source: latestSource } = useAppStore.getState()
+    saveWorkspace({
+      code: latestCode,
+      program: latestProgram,
+      source: latestSource,
+      nodes: graphRef.current.nodes,
+      edges: graphRef.current.edges,
+    })
+  }, [])
+
+  const saveSoon = useCallback(() => {
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = window.setTimeout(saveNow, SAVE_DELAY)
+  }, [saveNow])
+
+  const handleGraphChange = useCallback(
+    (nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]) => {
+      graphRef.current = { nodes, edges }
+      saveSoon()
+    },
+    [saveSoon],
+  )
+
+  // 의사코드 쪽 변화(글자·AST·출처)도 같은 방식으로 저장합니다.
+  useEffect(() => {
+    saveSoon()
+  }, [code, program, source, saveSoon])
+
+  // 탭을 그냥 닫아도 마지막 변화가 남도록 예약해 둔 저장을 흘려보냅니다.
+  useEffect(() => {
+    window.addEventListener("pagehide", saveNow)
+    return () => window.removeEventListener("pagehide", saveNow)
+  }, [saveNow])
 
   useEffect(() => () => {
     if (debounceRef.current !== null) window.clearTimeout(debounceRef.current)
     if (exportTimerRef.current !== null) window.clearTimeout(exportTimerRef.current)
+    if (saveTimerRef.current !== null) window.clearTimeout(saveTimerRef.current)
   }, [])
 
   const handleCodeChange = useCallback((nextCode: string) => {
@@ -107,6 +169,23 @@ export default function App() {
   const handlePaletteDrop = (kind: PaletteItemKind, clientX: number, clientY: number) => {
     flowCanvasRef.current?.addNodeAtScreen(kind, clientX, clientY)
     setPendingKind(null)
+  }
+
+  const handleReset = () => {
+    if (debounceRef.current !== null) {
+      window.clearTimeout(debounceRef.current)
+      debounceRef.current = null
+    }
+    // 예약해 둔 저장이 방금 지운 내용을 되살리지 않도록 먼저 끕니다.
+    if (saveTimerRef.current !== null) {
+      window.clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    graphRef.current = { nodes: [], edges: [] }
+    clearWorkspace()
+    setPendingKind(null)
+    setConfirmingReset(false)
+    reset()
   }
 
   const handleExportPng = async () => {
@@ -150,6 +229,9 @@ export default function App() {
               </a>
             ) : (
               <>
+                <button type="button" className="btn" onClick={() => setConfirmingReset(true)}>
+                  초기화
+                </button>
                 <a className="btn" href="#/examples">
                   예제 보기
                 </a>
@@ -225,10 +307,12 @@ export default function App() {
                 source={source}
                 pendingKind={pendingKind}
                 graphMessage={graphMessage}
+                restoredGraph={RESTORED_GRAPH}
                 onPendingConsumed={() => setPendingKind(null)}
                 onGraphMutation={handleFlowMutation}
                 onProgramChange={handleProgramChange}
                 onGraphMessage={setGraphMessage}
+                onGraphChange={handleGraphChange}
               />
             </article>
           </section>
@@ -239,6 +323,39 @@ export default function App() {
             onDrop={handlePaletteDrop}
           />
         </div>
+
+        {confirmingReset && (
+          <div
+            className="modal-backdrop"
+            role="presentation"
+            onPointerDown={() => setConfirmingReset(false)}
+          >
+            <div
+              className="node-editor-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="reset-dialog-title"
+              onPointerDown={event => event.stopPropagation()}
+              onKeyDown={event => {
+                if (event.key === "Escape") setConfirmingReset(false)
+              }}
+            >
+              <h3 id="reset-dialog-title">처음부터 다시 시작할까요?</h3>
+              <p className="dialog-text">
+                지금 만든 순서도와 의사코드가 모두 지워지고, 저장해 둔 내용도 함께 사라집니다.
+                되돌릴 수 없어요.
+              </p>
+              <div className="dialog-actions">
+                <button type="button" autoFocus onClick={() => setConfirmingReset(false)}>
+                  취소
+                </button>
+                <button type="button" className="danger" onClick={handleReset}>
+                  초기화
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </ReactFlowProvider>
   )

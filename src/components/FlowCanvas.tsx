@@ -31,6 +31,7 @@ import type {
   AlgorithmFlowEdge,
   AlgorithmFlowNode,
   ControlKind,
+  FlowGraph,
   FlowNodeKind,
   TerminalRole,
 } from "../core/flowTypes"
@@ -81,10 +82,13 @@ interface FlowCanvasProps {
   source: ProgramSource
   pendingKind: PaletteItemKind | null
   graphMessage: string | null
+  /** 저장해 둔 작업 내용. 있으면 AST로 다시 그리지 않고 이 그래프로 시작합니다. */
+  restoredGraph?: FlowGraph | null
   onPendingConsumed: () => void
   onGraphMutation: () => void
   onProgramChange: (program: Program) => void
   onGraphMessage: (message: string | null) => void
+  onGraphChange: (nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]) => void
 }
 
 interface EditingState {
@@ -151,14 +155,16 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     source,
     pendingKind,
     graphMessage,
+    restoredGraph,
     onPendingConsumed,
     onGraphMutation,
     onProgramChange,
     onGraphMessage,
+    onGraphChange,
   },
   ref,
 ) {
-  const initialGraph = useRef(astToFlow(program)).current
+  const initialGraph = useRef(restoredGraph ?? astToFlow(program)).current
   const [nodes, setNodesState] = useState<AlgorithmFlowNode[]>(initialGraph.nodes)
   const [edges, setEdgesState] = useState<AlgorithmFlowEdge[]>(initialGraph.edges)
   const [editing, setEditing] = useState<EditingState | null>(null)
@@ -171,13 +177,17 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   // 캔버스의 실제 크기. 탭 전환으로 감춰져 있는 동안에는 0입니다.
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
 
+  // 그래프가 바뀌는 길목은 이 둘뿐입니다. 여기서 알리면 기호 추가·삭제·연결·편집은
+  // 물론 끌어 옮기기까지 한 곳에서 잡힙니다(App이 받아서 저장합니다).
   const replaceNodes = (next: AlgorithmFlowNode[]) => {
     nodesRef.current = next
     setNodesState(next)
+    onGraphChange(next, edgesRef.current)
   }
   const replaceEdges = (next: AlgorithmFlowEdge[]) => {
     edgesRef.current = next
     setEdgesState(next)
+    onGraphChange(nodesRef.current, next)
   }
 
   const syncGraph = useCallback(
@@ -195,7 +205,18 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     [onGraphMessage, onProgramChange],
   )
 
+  /*
+   * 저장해 둔 그래프로 시작했으면 첫 배치를 건너뜁니다.
+   *
+   * AST에서 다시 그리면 아직 연결하지 않은 기호가 사라져 버립니다. 그것이 바로
+   * 새로 고쳤을 때 잃어버리면 안 되는 내용입니다.
+   */
+  const skipFirstLayoutRef = useRef(Boolean(restoredGraph))
+
   useEffect(() => {
+    const skip = skipFirstLayoutRef.current
+    skipFirstLayoutRef.current = false
+    if (skip) return
     if (source === "flow") return
     const graph = astToFlow(program)
     replaceNodes(graph.nodes)
@@ -205,6 +226,25 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     // revision이 바뀔 때 최신 AST를 다시 배치합니다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision, source])
+
+  /*
+   * 되살린 그래프가 아직 미완성이면 안내를 다시 띄웁니다.
+   *
+   * 검사만 하고 프로그램·의사코드는 건드리지 않습니다. 여기서 syncGraph를 부르면
+   * 쓰다 만 의사코드가 AST에서 만든 글로 덮어써집니다.
+   */
+  useEffect(() => {
+    if (!restoredGraph) return
+    try {
+      flowToAst(restoredGraph.nodes, restoredGraph.edges)
+    } catch (error) {
+      onGraphMessage(
+        error instanceof FlowValidationError ? error.message : "순서도의 연결을 확인해 주세요.",
+      )
+    }
+    // 처음 한 번만 확인합니다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const addAtScreen = useCallback(
     (kind: PaletteItemKind, clientX: number, clientY: number) => {
