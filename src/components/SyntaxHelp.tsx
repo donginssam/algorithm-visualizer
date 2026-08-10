@@ -4,7 +4,7 @@
  * 접이식(<details>)으로 두되, 펼친 표는 편집기 위에 겹쳐 띄웁니다. 1366×768에서
  * 세로 스크롤이 생기면 안 되는데, 아래로 밀어내는 방식이면 표 높이만큼 화면이
  * 넘칩니다. 겹쳐 띄우면 화면 높이가 아예 변하지 않습니다.
- * 문법 규칙은 walkthrough.md §3.2와 core/parser.ts를 따릅니다.
+ * 문법 규칙은 docs/pseudocode.md와 core/parser.ts를 따릅니다.
  */
 
 import { useEffect, useRef, useState } from "react"

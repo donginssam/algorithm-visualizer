@@ -144,3 +144,16 @@ pnpm build
 
 - 대상 환경은 데스크톱과 가로형 크롬북입니다. 휴대폰과 태블릿 세로 화면용 별도 레이아웃은 제공하지 않습니다.
 - 1366×768과 1440×900 뷰포트에서 화면 배치와 주요 조작을 확인했습니다.
+
+## 개발 문서
+
+개발자를 위한 문서는 [docs/README.md](./docs/README.md)에서 주제별로 확인할 수 있습니다.
+
+- [프로젝트 개요와 기술 결정](./docs/project-overview.md)
+- [아키텍처](./docs/architecture.md)
+- [의사코드와 AST](./docs/pseudocode.md)
+- [순서도 기호 규칙](./docs/flowchart-symbols.md)
+- [순서도 변환과 렌더링](./docs/flowchart.md)
+- [UI와 터치 입력](./docs/ui-touch.md)
+- [테스트와 유지보수](./docs/testing.md)
+- [구현 단계 기록](./docs/milestones/README.md)
