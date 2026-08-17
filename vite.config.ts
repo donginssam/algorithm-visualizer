@@ -1,7 +1,14 @@
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react"
 import { VitePWA } from "vite-plugin-pwa"
-import { buildManifest, PAGES_BASE } from "./src/constants/pwa"
+import { buildManifest, PAGES_BASE } from "./src/constants/pwa.ts"
+
+function vendorChunk(moduleId: string): string | undefined {
+  if (moduleId.includes("/node_modules/@xyflow/")) return "vendor-reactflow"
+  if (moduleId.includes("/node_modules/@codemirror/")) return "vendor-codemirror"
+  if (moduleId.includes("/node_modules/@dagrejs/")) return "vendor-dagre"
+  return undefined
+}
 
 export default defineConfig(({ command, isPreview }) => {
   // GitHub Pages project sites are served below /<repository>/.
@@ -38,16 +45,7 @@ export default defineConfig(({ command, isPreview }) => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            "vendor-reactflow": ["@xyflow/react"],
-            "vendor-codemirror": [
-              "@codemirror/commands",
-              "@codemirror/lint",
-              "@codemirror/state",
-              "@codemirror/view",
-            ],
-            "vendor-dagre": ["@dagrejs/dagre"],
-          },
+          manualChunks: vendorChunk,
         },
       },
     },
