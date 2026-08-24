@@ -20,26 +20,26 @@
 - AST가 아니라 **순서도 그래프를 그대로** 저장합니다. 만드는 도중에는 아직 연결하지 않은 기호가 있어 AST로 바꿀 수 없는데, 그 상태야말로 잃어버리면 안 되기 때문입니다.
 - 저장 형식에 `VERSION`을 두고, 값이 조금이라도 어긋나면 읽지 않고 버립니다.
 - React Flow가 실행 중에 붙이는 값(`measured`·`selected`·`dragging`)은 담지 않습니다. 다음에 열 때 다시 측정됩니다.
-- 직렬화는 순수 함수로 두고, `localStorage`에 손대는 함수는 세 개(`loadWorkspace`·`saveWorkspace`·`clearWorkspace`)로 좁혔습니다. 저장소가 막힌 환경에서는 저장만 조용히 건너뜁니다.
-- 글자와 기호를 이어서 다룰 때 매번 쓰지 않도록 400ms 뒤에 저장하고, `pagehide`에서 예약해 둔 저장을 흘려보냅니다.
+- 직렬화는 순수 함수로 두고 `localStorage`에 손대는 함수는 세 개(`loadWorkspace`·`saveWorkspace`·`clearWorkspace`)로 좁혔습니다. 저장소가 막힌 환경에서는 저장만 조용히 건너뜁니다.
+- 글자와 기호를 이어서 다룰 때 매번 쓰지 않도록 400ms 뒤에 저장하고 `pagehide`에서 예약해 둔 저장을 흘려보냅니다.
 - 되살린 의사코드에 문법 오류가 남아 있었다면 밑줄과 안내도 함께 되살립니다(`restoredParseError`).
-- 상단바에 `초기화` 버튼과 확인 대화상자를 두고, 지우기 전에 예약된 저장부터 껐습니다.
+- 상단바에 `초기화` 버튼과 확인 대화상자를 두고 지우기 전에 예약된 저장부터 껐습니다.
 
 현재 기준은 [아키텍처 문서의 작업 내용 자동 저장](../architecture.md#작업-내용-자동-저장)에 정리되어 있습니다.
 
 ### 흩어진 값과 반복 코드 모으기
 
-같은 의미의 값이 파일마다 literal로 적혀 있어, 한쪽만 고치면 화면·PNG·의사코드가 어긋나는 상태였습니다.
+같은 의미의 값이 파일마다 literal로 적혀 있어 한쪽만 고치면 화면·PNG·의사코드가 어긋나는 상태였습니다.
 
 - [`src/constants/pseudocode.ts`](../../src/constants/pseudocode.ts) — `←`, `입력: `, `출력: ` 같은 토큰을 모았습니다. `astToFlow`·`astToText`·`flowToAst`·`FlowCanvas`가 이 토큰으로 서로 맞물립니다.
 - [`src/constants/flowColors.ts`](../../src/constants/flowColors.ts) — 화살표 색과 기호 4색입니다. React Flow의 `<defs>` marker와 독립 실행 SVG 문자열은 CSS 변수에 닿을 수 없어 literal이 필요합니다.
-- [`src/core/shapeGeometry.ts`](../../src/core/shapeGeometry.ts) — 평행사변형과 마름모 윤곽을 0에서 1 사이로 정규화한 좌표 하나로 두고, 화면 SVG(0에서 100까지의 좌표계)와 PNG(실제 픽셀)가 각자 필요한 단위로 늘려 그립니다.
+- [`src/core/shapeGeometry.ts`](../../src/core/shapeGeometry.ts) — 평행사변형과 마름모 윤곽을 0에서 1 사이로 정규화한 좌표 하나로 두고 화면 SVG(0에서 100까지의 좌표계)와 PNG(실제 픽셀)가 각자 필요한 단위로 늘려 그립니다.
 - [`src/hooks/useTimeout.ts`](../../src/hooks/useTimeout.ts) — 컴포넌트가 사라질 때 자동으로 정리되는 단일 타이머입니다. 화면마다 반복되던 `clearTimeout` 정리 코드를 대체합니다.
 - `FlowCanvas`에서 `stripIoDecoration`·`editableNodeValue`·`editingLabel`·`graphErrorMessage`를 함수로 빼고, `workspaceStore`의 타입 가드를 읽기 쉽게 다듬었습니다.
 
 스타일은 CSS 한 파일에서 SCSS 세 파일로 옮겼습니다.
 
-- [`_tokens.scss`](../../src/styles/_tokens.scss)는 디자인 token을 CSS custom properties로 그대로 두고, 기호 4색을 SCSS map으로도 노출합니다.
+- [`_tokens.scss`](../../src/styles/_tokens.scss)는 디자인 token을 CSS custom properties로 그대로 두고 기호 4색을 SCSS map으로도 노출합니다.
 - [`_mixins.scss`](../../src/styles/_mixins.scss)에 버튼, 가로 정렬, 가운데 정렬처럼 반복되던 규칙을 모았습니다.
 - 기호 4색과 노드 크기처럼 TypeScript 쪽과 짝을 이뤄야 하는 값에는 어느 파일과 맞춰야 하는지 주석으로 적었습니다.
 
@@ -54,7 +54,7 @@
 [`.github/workflows/deploy-pages.yml`](../../.github/workflows/deploy-pages.yml)이 `main` push와 수동 실행에서 돌아갑니다.
 
 - 의존성 설치는 `pnpm install --frozen-lockfile`로 lockfile을 그대로 씁니다.
-- **`pnpm test`가 먼저 돌고, 통과해야 `pnpm build`로 넘어갑니다.**
+- **`pnpm test`가 먼저 돌고 통과해야 `pnpm build`로 넘어갑니다.**
 - `dist`를 Pages artifact로 올리고 `actions/deploy-pages`로 배포합니다.
 - `concurrency`를 `github-pages` 하나로 묶고 `cancel-in-progress`를 켜, 연달아 push해도 마지막 것만 남습니다.
 - 권한은 `contents: read`, `pages: write`, `id-token: write`로 좁혔습니다.
@@ -86,7 +86,7 @@
 얻은 것은 세 가지입니다.
 
 - 첫 화면이 gzip 6 kB짜리 chunk 하나로 그려지고, 무거운 코드는 그동안 나란히 받아집니다.
-- vendor chunk가 앱 코드와 분리되어, 앱만 고쳐 배포하면 큰 라이브러리는 캐시가 그대로 남습니다.
+- vendor chunk가 앱 코드와 분리되어 앱만 고쳐 배포하면 큰 라이브러리는 캐시가 그대로 남습니다.
 - 500 kB 초과 경고가 사라졌습니다.
 
 `flowToSvg`가 따로 떨어진 것은 지정한 결과가 아니라, 편집 화면과 예제 화면 양쪽이 함께 써서 Rollup이 공용 chunk로 끌어올린 것입니다.
@@ -111,7 +111,7 @@ AST는 완성된 프로그램만 표현할 수 있습니다. 기호 세 개를 �
 
 ### 토큰은 CSS 변수로 두고 SCSS로 옮긴 이유
 
-SCSS 변수로 바꾸면 빌드 시점에 값이 박혀, 나중에 다크 모드처럼 실행 중에 theme을 바꾸는 길이 막힙니다. token은 CSS custom properties 그대로 두고, SCSS는 반복되는 규칙을 mixin으로 접는 용도로만 썼습니다.
+SCSS 변수로 바꾸면 빌드 시점에 값이 박혀 나중에 다크 모드처럼 실행 중에 theme을 바꾸는 길이 막힙니다. token은 CSS custom properties 그대로 두고 SCSS는 반복되는 규칙을 mixin으로 접는 용도로만 썼습니다.
 
 ### `pnpm build`에 검사를 넣은 이유
 
@@ -127,7 +127,7 @@ SCSS 변수로 바꾸면 빌드 시점에 값이 박혀, 나중에 다크 모드
 
 ### `manualChunks`를 손으로 지정한 이유
 
-`React.lazy`만으로도 편집 화면 코드는 나뉘지만, vendor 라이브러리는 그 chunk 안에 함께 들어갑니다. 위 표의 값으로 따지면 그 chunk 하나가 약 717 kB(331.22 + 309.97 + 47.67 + 28.02)가 되고, 앱 코드를 한 줄만 고쳐도 해시가 바뀌어 캐시가 통째로 무효가 됩니다. 세 라이브러리를 따로 뽑아 두면 배포마다 다시 받는 양이 앱 코드로 한정됩니다.
+`React.lazy`만으로도 편집 화면 코드는 나뉘지만, vendor 라이브러리는 그 chunk 안에 함께 들어갑니다. 위 표의 값으로 따지면 그 chunk 하나가 약 717 kB(331.22 + 309.97 + 47.67 + 28.02)가 되고 앱 코드를 한 줄만 고쳐도 해시가 바뀌어 캐시가 통째로 무효가 됩니다. 세 라이브러리를 따로 뽑아 두면 배포마다 다시 받는 양이 앱 코드로 한정됩니다.
 
 ## 주요 산출물
 

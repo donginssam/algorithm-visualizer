@@ -86,8 +86,8 @@ interface Program {
 | `localStorage` 접근은 모두 `try/catch`                | 사생활 보호 모드처럼 막혀 있어도 편집은 계속할 수 있어야 합니다   |
 
 - **저장**: [`src/App.tsx`](../src/App.tsx)가 `code`·`program`·`source` 변화와 `FlowCanvas`의 `onGraphChange`(기호 추가·삭제·연결·편집·이동)를 받아 400ms 디바운스로 저장합니다. `pagehide`에서 예약된 저장을 즉시 흘려보냅니다.
-- **복원**: store가 만들어질 때 한 번 읽어 `program`·`code`·`source`·`parseError`의 초깃값으로 씁니다. 그래프는 `FlowCanvas`의 `restoredGraph` prop으로 넘어가고, **첫 자동 배치를 한 번 건너뜁니다**. 그러지 않으면 AST에서 다시 그리면서 연결하지 않은 기호가 사라집니다. 복원한 그래프가 미완성이면 검증만 다시 돌려 `graphMessage`를 띄웁니다(의사코드 초안은 건드리지 않습니다).
-- **초기화**: 상단 오른쪽 `초기화` 버튼이 확인 창을 띄우고, 확인하면 예약된 저장을 취소한 뒤 저장 값을 지우고 store를 빈 프로그램으로 되돌립니다.
+- **복원**: store가 만들어질 때 한 번 읽어 `program`·`code`·`source`·`parseError`의 초깃값으로 씁니다. 그래프는 `FlowCanvas`의 `restoredGraph` prop으로 넘어가고 **첫 자동 배치를 한 번 건너뜁니다**. 그러지 않으면 AST에서 다시 그리면서 연결하지 않은 기호가 사라집니다. 복원한 그래프가 미완성이면 검증만 다시 돌려 `graphMessage`를 띄웁니다(의사코드 초안은 건드리지 않습니다).
+- **초기화**: 상단 오른쪽 `초기화` 버튼이 확인 창을 띄우고 확인하면 예약된 저장을 취소한 뒤 저장 값을 지우고 store를 빈 프로그램으로 되돌립니다.
 
 ## 오프라인 실행과 설치
 
@@ -104,15 +104,15 @@ interface Program {
 
 `registerType: "prompt"`입니다. 자동으로 새로 고치지 않습니다. 수업 중에 기호를 끌거나 글자를 치는 도중 화면이 갑자기 바뀌면 하던 동작이 끊깁니다.
 
-[`src/components/UpdatePrompt.tsx`](../src/components/UpdatePrompt.tsx)가 `useRegisterSW`로 service worker를 등록하고, 새 버전이 대기 상태가 되면 `초기화`와 같은 대화상자로 한 번 묻습니다. `지금 새로 고침`을 누르면 예약된 저장을 먼저 흘려보내고(`saveNow`) 새 worker로 교체한 뒤 새로 고칩니다. 자동 저장이 있으므로 새로 고쳐도 만들던 내용은 그대로 복원됩니다.
+[`src/components/UpdatePrompt.tsx`](../src/components/UpdatePrompt.tsx)가 `useRegisterSW`로 service worker를 등록하고 새 버전이 대기 상태가 되면 `초기화`와 같은 대화상자로 한 번 묻습니다. `지금 새로 고침`을 누르면 예약된 저장을 먼저 흘려보내고(`saveNow`) 새 worker로 교체한 뒤 새로 고칩니다. 자동 저장이 있으므로 새로 고쳐도 만들던 내용은 그대로 복원됩니다.
 
 ### base와 scope
 
-manifest의 `scope`·`start_url`이 Vite의 `base`와 어긋나면 **설치는 되는데 열면 404**가 나고, 원인이 화면에 드러나지 않습니다. 두 값을 따로 적지 않고 [`src/constants/pwa.ts`](../src/constants/pwa.ts)의 `buildManifest(base)`가 `base` 하나에서 만들어 냅니다. `vite.config.ts`는 `PAGES_BASE`를 `base` 계산과 manifest 양쪽에 씁니다.
+manifest의 `scope`·`start_url`이 Vite의 `base`와 어긋나면 **설치는 되는데 열면 404**가 나고 원인이 화면에 드러나지 않습니다. 두 값을 따로 적지 않고 [`src/constants/pwa.ts`](../src/constants/pwa.ts)의 `buildManifest(base)`가 `base` 하나에서 만들어 냅니다. `vite.config.ts`는 `PAGES_BASE`를 `base` 계산과 manifest 양쪽에 씁니다.
 
 ### 아이콘과 설치 창
 
-**Chrome은 manifest 아이콘으로 SVG를 받지 않습니다.** 파일이 정상이어도(favicon으로는 잘 동작합니다) 설치 아이콘 처리기가 불러오지 못하고, 정사각형 아이콘이 하나도 없다고 알립니다. 그래서 그림의 원본만 SVG로 두고 manifest에는 PNG를 넣습니다.
+**Chrome은 manifest 아이콘으로 SVG를 받지 않습니다.** 파일이 정상이어도(favicon으로는 잘 동작합니다) 설치 아이콘 처리기가 불러오지 못하고 정사각형 아이콘이 하나도 없다고 알립니다. 그래서 그림의 원본만 SVG로 두고 manifest에는 PNG를 넣습니다.
 
 | 파일                       | 쓰임                               |
 | -------------------------- | ---------------------------------- |
@@ -151,7 +151,7 @@ iOS `apple-touch-icon`은 지원 범위 밖이라 두지 않습니다.
 | `EditorWorkspace` | 항상 마운트하고 `hidden`으로 감춤 | 첫 화면이 뜨는 즉시   |
 | `ExamplesPage`    | `#/examples`일 때만 마운트        | 예제 화면에 들어갈 때 |
 
-편집 화면을 조건부로 마운트하지 않는 것은 위 [화면과 라우팅](#화면과-라우팅)의 규칙 때문입니다. 예제 화면을 오갈 때 그리던 그래프가 사라지면 안 되므로 마운트는 유지해야 하고, 따라서 편집 화면 chunk는 첫 화면과 거의 동시에 요청됩니다.
+편집 화면을 조건부로 마운트하지 않는 것은 위 [화면과 라우팅](#화면과-라우팅)의 규칙 때문입니다. 예제 화면을 오갈 때 그리던 그래프가 사라지면 안 되므로 마운트는 유지해야 하고 따라서 편집 화면 chunk는 첫 화면과 거의 동시에 요청됩니다.
 
 **즉 이 분할의 목적은 내려받는 총량을 줄이는 것이 아니라, 먼저 그릴 수 있는 부분을 먼저 그리는 것입니다.** 상단바는 작은 진입 chunk 하나로 그려지고 무거운 코드는 그동안 나란히 받아집니다.
 

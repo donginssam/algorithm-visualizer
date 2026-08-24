@@ -4,7 +4,7 @@
 
 ## 목표
 
-7단계에서 작업 내용을 `localStorage`에 자동 저장하게 되면서, 이상한 상태가 하나 남았습니다. **데이터는 이미 기기 안에 있는데, 그 데이터를 여는 앱 코드만 매번 네트워크에서 받아야 합니다.** 학교 무선망이 느리거나 끊기면 저장해 둔 작업을 열지도 못합니다.
+7단계에서 작업 내용을 `localStorage`에 자동 저장하게 되면서 이상한 상태가 하나 남았습니다. **데이터는 이미 기기 안에 있는데, 그 데이터를 여는 앱 코드만 매번 네트워크에서 받아야 합니다.** 학교 무선망이 느리거나 끊기면 저장해 둔 작업을 열지도 못합니다.
 
 - 한 번 연 뒤에는 네트워크 없이도 열리고 모든 기능이 동작할 것
 - 주소를 외우지 않고 앱 아이콘으로 열 수 있을 것
@@ -17,25 +17,25 @@
 [`vite.config.ts`](../../vite.config.ts)에 `vite-plugin-pwa` 1.3.0(Workbox)을 붙였습니다.
 
 - `globPatterns`를 `["**/*.{js,css,html,svg}", "icon-*.png"]`로 두어 기본값이 빠뜨리는 아이콘까지 담습니다. 설치 창 갈무리(`screenshot-*.png`, 169 KB)는 오프라인에서 쓸 일이 없어 일부러 뺐습니다.
-- 화면 전환이 URL 해시라 실제 문서는 `index.html` 하나뿐이므로 `navigateFallback`도 그것 하나입니다. 평소에는 precache가 그대로 맞고, 쿼리가 붙은 주소(`?from=lms`처럼 LMS 링크에서 오는 경우)만 이 fallback이 받습니다. 오프라인에서 실제로 그 주소로 들어가 확인했습니다.
+- 화면 전환이 URL 해시라 실제 문서는 `index.html` 하나뿐이므로 `navigateFallback`도 그것 하나입니다. 평소에는 precache가 그대로 맞고 쿼리가 붙은 주소(`?from=lms`처럼 LMS 링크에서 오는 경우)만 이 fallback이 받습니다. 오프라인에서 실제로 그 주소로 들어가 확인했습니다.
 - 빌드 결과는 precache 16개 항목, 790.61 KiB입니다. 여기에는 예제 화면 chunk(`ExamplesPage-*.js`)도 들어갑니다. Workbox는 실제 요청이 아니라 glob으로 담기 때문에, 예제 화면에 한 번도 들어가지 않았어도 오프라인에서 열립니다.
 - pnpm 환경에서는 `workbox-window`를 직접 적어야 합니다. 가상 모듈이 이것을 import하는데 pnpm의 엄격한 `node_modules`에서는 자동으로 찾지 못해 빌드가 멈춥니다. 번들에 실제로 들어가는 라이브러리이므로 `dependencies`에 둡니다(`vite-plugin-pwa` 자체는 빌드 도구라 `devDependencies`).
 
 ### 설치 manifest
 
-[`src/constants/pwa.ts`](../../src/constants/pwa.ts)의 `buildManifest(base)`가 manifest를 만들고, `vite.config.ts`가 `base` 계산과 manifest 양쪽에 같은 `PAGES_BASE`를 씁니다.
+[`src/constants/pwa.ts`](../../src/constants/pwa.ts)의 `buildManifest(base)`가 manifest를 만들고 `vite.config.ts`가 `base` 계산과 manifest 양쪽에 같은 `PAGES_BASE`를 씁니다.
 
-- 아이콘은 정사각형 PNG 세 개(`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`)입니다. 그림의 원본은 [`public/icon.svg`](../../public/icon.svg)와 [`public/icon-maskable.svg`](../../public/icon-maskable.svg)이고, [`scripts/generate-icons.mjs`](../../scripts/generate-icons.mjs)가 헤드리스 Chrome으로 PNG를 뽑습니다. `index.html`의 favicon은 data URI 대신 `icon.svg`를 가리킵니다.
-- 설치 창 미리보기로 `screenshot-wide.png`(1366×768)를 넣고, 넓은 화면용과 그 밖의 화면용으로 각각 등록합니다.
+- 아이콘은 정사각형 PNG 세 개(`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`)입니다. 그림의 원본은 [`public/icon.svg`](../../public/icon.svg)와 [`public/icon-maskable.svg`](../../public/icon-maskable.svg)이고 [`scripts/generate-icons.mjs`](../../scripts/generate-icons.mjs)가 헤드리스 Chrome으로 PNG를 뽑습니다. `index.html`의 favicon은 data URI 대신 `icon.svg`를 가리킵니다.
+- 설치 창 미리보기로 `screenshot-wide.png`(1366×768)를 넣고 넓은 화면용과 그 밖의 화면용으로 각각 등록합니다.
 - `theme_color`·`background_color`는 `index.html`의 `<meta name="theme-color">`, `_tokens.scss`의 `--surface-page`와 같은 `#eef2fa`입니다.
 - `display: "standalone"`, `lang: "ko"`, `categories: ["education"]`.
 
 ### 새 버전 알림
 
-[`src/components/UpdatePrompt.tsx`](../../src/components/UpdatePrompt.tsx)가 `useRegisterSW`로 service worker를 등록하고, 새 버전이 대기 상태가 되면 대화상자를 띄웁니다.
+[`src/components/UpdatePrompt.tsx`](../../src/components/UpdatePrompt.tsx)가 `useRegisterSW`로 service worker를 등록하고 새 버전이 대기 상태가 되면 대화상자를 띄웁니다.
 
 - 스타일은 기호 편집·초기화 대화상자와 같은 것(`.modal-backdrop` + `.node-editor-dialog` + `.dialog-actions`)을 그대로 씁니다. CSS는 한 줄도 늘지 않았습니다.
-- 초점은 `나중에`에 먼저 가고, `Esc`와 바깥 누르기로 닫힙니다.
+- 초점은 `나중에`에 먼저 가고 `Esc`와 바깥 누르기로 닫힙니다.
 - `지금 새로 고침`은 예약된 저장을 먼저 흘려보낸 뒤(`saveNow`) 새 worker로 교체하고 새로 고칩니다.
 
 ## 선택 이유와 고려한 대안
@@ -46,7 +46,7 @@
 
 ### 자동으로 새로 고치지 않는 이유
 
-`autoUpdate`는 새 worker가 제어권을 잡는 순간 페이지를 새로 고칩니다. 자동 저장이 있어 내용을 잃지는 않지만, 수업 중에 기호를 끌거나 글자를 치는 도중 화면이 바뀌면 하던 동작이 끊깁니다. 되돌릴 수 없는 `초기화`에 확인을 두기로 한 것과 같은 이유로, 여기서도 한 번 묻습니다.
+`autoUpdate`는 새 worker가 제어권을 잡는 순간 페이지를 새로 고칩니다. 자동 저장이 있어 내용을 잃지는 않지만 수업 중에 기호를 끌거나 글자를 치는 도중 화면이 바뀌면 하던 동작이 끊깁니다. 되돌릴 수 없는 `초기화`에 확인을 두기로 한 것과 같은 이유로, 여기서도 한 번 묻습니다.
 
 ### 한글 글꼴을 캐시하지 않은 이유
 
@@ -54,7 +54,7 @@
 
 ### 아이콘을 SVG로 두려다 PNG로 되돌린 이유
 
-처음에는 manifest 아이콘도 `sizes: "any"`인 SVG 하나로 덮으려 했습니다. 크기별 PNG를 만들어 원본과 계속 맞추는 일을 피할 수 있기 때문입니다. `Page.getAppManifest`가 `errors: []`를 돌려주기에 문제가 없다고 판단했지만, **그 명령은 manifest를 파싱만 하고 아이콘을 실제로 불러 보지 않습니다.** DevTools의 Application 탭은 아이콘을 직접 받아 보고 다음을 알려 줍니다.
+처음에는 manifest 아이콘도 `sizes: "any"`인 SVG 하나로 덮으려 했습니다. 크기별 PNG를 만들어 원본과 계속 맞추는 일을 피할 수 있기 때문입니다. `Page.getAppManifest`가 `errors: []`를 돌려주기에 문제가 없다고 판단했지만 **그 명령은 manifest를 파싱만 하고 아이콘을 실제로 불러 보지 않습니다.** DevTools의 Application 탭은 아이콘을 직접 받아 보고 다음을 알려 줍니다.
 
 ```
 Icon …/icon.svg failed to load
@@ -71,7 +71,7 @@ PNG를 손으로 만들어 두면 원본과 어긋나므로, 래스터 변환 �
 
 ### manifest를 TypeScript 모듈로 둔 이유
 
-`scope`·`start_url`이 Vite의 `base`와 어긋나면 설치는 되는데 열면 404가 나고, 원인이 화면에 드러나지 않습니다. 정적 JSON 파일로 두면 `base`를 바꿀 때 같이 고쳐야 한다는 사실을 잊기 쉽습니다. `base` 하나에서 만들어 내고, 그 관계를 [`src/constants/pwa.test.ts`](../../src/constants/pwa.test.ts)가 검사합니다.
+`scope`·`start_url`이 Vite의 `base`와 어긋나면 설치는 되는데 열면 404가 나고 원인이 화면에 드러나지 않습니다. 정적 JSON 파일로 두면 `base`를 바꿀 때 같이 고쳐야 한다는 사실을 잊기 쉽습니다. `base` 하나에서 만들어 내고 그 관계를 [`src/constants/pwa.test.ts`](../../src/constants/pwa.test.ts)가 검사합니다.
 
 ## 주요 산출물
 
@@ -117,13 +117,14 @@ PNG를 손으로 만들어 두면 원본과 어긋나므로, 래스터 변환 �
 | 오프라인 `?from=lms`      | `navigateFallback`으로 앱이 그대로 뜸                                  |
 | 개발 서버                 | service worker 0개, 콘솔 오류 0건                                      |
 
-오프라인에서 뜨는 콘솔 오류는 Pretendard subset 요청 실패뿐이며, 의도한 동작입니다(시스템 한글 글꼴로 대체). CDN의 CSS는 브라우저 HTTP 캐시에 남아 `@font-face` 규칙이 살아 있으므로, 화면에 그려진 글자의 subset 수만큼 실패가 납니다.
+오프라인에서 뜨는 콘솔 오류는 Pretendard subset 요청 실패뿐이며 의도한 동작입니다(시스템 한글 글꼴로 대체). CDN의 CSS는 브라우저 HTTP 캐시에 남아 `@font-face` 규칙이 살아 있으므로, 화면에 그려진 글자의 subset 수만큼 실패가 납니다.
 
-## 아직 확인하지 않은 항목
+## 후속 검증 상태
 
-- 실제 크롬북에서 설치한 뒤의 창 크기와 세로 여유
-- 실제 GitHub Pages 배포본에서의 service worker 갱신 주기
-- 저장 공간이 부족한 기기에서 precache가 실패할 때의 동작
+- 실제 Chromebook에서 설치한 뒤의 창 크기, 세로 여유와 주요 기능은 2026-08-24 확인했습니다.
+- 다음 항목은 여전히 별도 환경에서 확인이 필요합니다.
+  - 실제 GitHub Pages 배포본에서 service worker가 갱신되는 주기
+  - 저장 공간이 부족한 기기에서 precache가 실패할 때의 동작
 
 ## 이번 단계에서 제외한 기능
 
