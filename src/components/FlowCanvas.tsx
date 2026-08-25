@@ -35,6 +35,7 @@ import type { Program } from "../core/ast"
 import { arrowMarker, astToFlow, NODE_SIZES } from "../core/astToFlow"
 import { flowToAst, FlowValidationError } from "../core/flowToAst"
 import { flowToSvg, graphBounds } from "../core/flowToSvg"
+import { cloneFlowGraph, GraphHistory } from "../core/graphHistory"
 import type {
   AlgorithmFlowEdge,
   AlgorithmFlowNode,
@@ -208,6 +209,20 @@ function editingLabel(editing: EditingState): string {
   }
 }
 
+function isTextEditingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return Boolean(target.closest("input, textarea, select, [contenteditable='true'], .cm-editor"))
+}
+
+function nodePositionsChanged(before: FlowGraph, after: FlowGraph): boolean {
+  if (before.nodes.length !== after.nodes.length) return true
+  const beforePositions = new Map(before.nodes.map(node => [node.id, node.position]))
+  return after.nodes.some(node => {
+    const position = beforePositions.get(node.id)
+    return !position || position.x !== node.position.x || position.y !== node.position.y
+  })
+}
+
 export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function FlowCanvas(
   {
     program,
@@ -231,6 +246,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   const containerRef = useRef<HTMLDivElement>(null)
   const nodesRef = useRef(nodes)
   const edgesRef = useRef(edges)
+  const historyRef = useRef(new GraphHistory())
+  const positionStartRef = useRef<FlowGraph | null>(null)
   const needsFitRef = useRef(true)
   const { screenToFlowPosition, getViewport, setViewport } = useReactFlow<
     AlgorithmFlowNode,
@@ -278,6 +295,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   // 저장 표시, 화면 상태, 의사코드 동기화를 한 번에 맞춥니다.
   const commitGraph = useCallback(
     (nextNodes: AlgorithmFlowNode[], nextEdges: AlgorithmFlowEdge[]) => {
+      historyRef.current.record({ nodes: nodesRef.current, edges: edgesRef.current })
+      positionStartRef.current = null
       onGraphMutation()
       replaceGraph(nextNodes, nextEdges)
       syncGraph(nextNodes, nextEdges)
@@ -298,6 +317,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     skipFirstLayoutRef.current = false
     if (skip) return
     if (source === "flow") return
+    historyRef.current.clear()
+    positionStartRef.current = null
     const graph = astToFlow(program)
     replaceGraph(graph.nodes, graph.edges)
     // 새 기호의 크기가 측정된 뒤에 맞춰야 하므로 아래 효과에 넘깁니다.
@@ -455,11 +476,30 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   ])
 
   const handleNodesChange = (changes: NodeChange<AlgorithmFlowNode>[]) => {
+    const positionChanges = changes.filter(change => change.type === "position")
+    if (positionChanges.length > 0 && !positionStartRef.current) {
+      positionStartRef.current = cloneFlowGraph({
+        nodes: nodesRef.current,
+        edges: edgesRef.current,
+      })
+      // 긴 드래그 중 예약된 의사코드 변환이 순서도를 덮지 않도록 즉시 취소합니다.
+      onGraphMutation()
+    }
+
     const next = applyNodeChanges(changes, nodesRef.current)
     if (changes.some(change => change.type === "remove")) {
       commitGraph(next, edgesRef.current)
     } else {
       replaceNodes(next)
+
+      const positionFinished =
+        positionChanges.length > 0 && positionChanges.every(change => change.dragging !== true)
+      if (positionFinished && positionStartRef.current) {
+        const before = positionStartRef.current
+        const after = { nodes: next, edges: edgesRef.current }
+        positionStartRef.current = null
+        if (nodePositionsChanged(before, after)) historyRef.current.record(before)
+      }
     }
   }
 
@@ -534,6 +574,64 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     commitGraph(nodesRef.current, nextEdges)
   }
 
+  const restoreFromHistory = useCallback(
+    (direction: "undo" | "redo") => {
+      const current = { nodes: nodesRef.current, edges: edgesRef.current }
+      const restored =
+        direction === "undo" ? historyRef.current.undo(current) : historyRef.current.redo(current)
+      if (!restored) return false
+
+      positionStartRef.current = null
+      setEditing(null)
+      onGraphMutation()
+      replaceGraph(restored.nodes, restored.edges)
+      syncGraph(restored.nodes, restored.edges)
+      return true
+    },
+    [onGraphMutation, replaceGraph, syncGraph],
+  )
+
+  const removeSelected = useCallback(() => {
+    const selectedNodeIds = new Set(
+      nodesRef.current.filter(node => node.selected).map(node => node.id),
+    )
+    const selectedEdgeIds = new Set(
+      edgesRef.current.filter(edge => edge.selected).map(edge => edge.id),
+    )
+    if (selectedNodeIds.size === 0 && selectedEdgeIds.size === 0) return false
+
+    const nextNodes = nodesRef.current.filter(node => !selectedNodeIds.has(node.id))
+    const nextEdges = edgesRef.current.filter(
+      edge =>
+        !selectedEdgeIds.has(edge.id) &&
+        !selectedNodeIds.has(edge.source) &&
+        !selectedNodeIds.has(edge.target),
+    )
+    commitGraph(nextNodes, nextEdges)
+    return true
+  }, [commitGraph])
+
+  useEffect(() => {
+    const handleKeyboardShortcut = (event: KeyboardEvent) => {
+      if (containerRef.current?.offsetParent === null || isTextEditingTarget(event.target)) return
+      if (editing) return
+
+      const commandKey = event.ctrlKey || event.metaKey
+      if (commandKey && !event.altKey && event.key.toLowerCase() === "z") {
+        event.preventDefault()
+        restoreFromHistory(event.shiftKey ? "redo" : "undo")
+        return
+      }
+
+      if (!commandKey && !event.altKey && (event.key === "Backspace" || event.key === "Delete")) {
+        if (removeSelected()) event.preventDefault()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyboardShortcut)
+    return () => window.removeEventListener("keydown", handleKeyboardShortcut)
+  }, [editing, removeSelected, restoreFromHistory])
+
   const openEditor = (id: string) => {
     const node = nodesRef.current.find(candidate => candidate.id === id)
     if (!node) return
@@ -602,7 +700,11 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   }
 
   return (
-    <div className="flow-canvas" ref={containerRef}>
+    <div
+      className="flow-canvas"
+      ref={containerRef}
+      aria-keyshortcuts="Control+Z Meta+Z Control+Shift+Z Meta+Shift+Z"
+    >
       <NodeActionContext.Provider value={{ edit: openEditor, remove: removeNode }}>
         <EdgeActionContext.Provider value={{ remove: removeEdge }}>
           <ReactFlow<AlgorithmFlowNode, AlgorithmFlowEdge>
@@ -649,7 +751,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
             zoomOnPinch
             zoomOnDoubleClick={false}
             connectionRadius={28}
-            deleteKeyCode={["Backspace", "Delete"]}
+            deleteKeyCode={null}
             proOptions={{ hideAttribution: true }}
             aria-label="순서도 편집 캔버스"
           >

@@ -31,6 +31,9 @@
 - 노드 편집 대화상자에서 대입식, 입출력 값, 조건식과 판단 종류를 수정합니다.
 - `←`, `×`, `÷` 기호 버튼을 제공합니다.
 - 판단 종류를 조건에서 반복으로 바꾸면 기존 합류점을 제거하고, 반복에서 조건으로 바꾸면 합류점을 추가합니다.
+- `Ctrl/Cmd + Z`로 순서도 작업을 되돌리고 `Ctrl/Cmd + Shift + Z`로 다시 실행합니다.
+- 노드 드래그는 이동 중 좌표마다 기록하지 않고 손을 뗄 때 하나의 작업으로 기록합니다.
+- 의사코드 편집기에 초점이 있으면 CodeMirror의 글자 undo/redo가 우선합니다.
 
 연결 단계에서 다음 잘못된 연결을 미리 제한합니다.
 
@@ -101,6 +104,7 @@ HTML5 Drag and Drop API는 mouse 중심이며 터치스크린에서 일관되게
 | `src/components/nodes/FlowNodes.tsx` | 노드 선택 toolbar와 연결점      |
 | `src/components/FlowEdges.tsx`       | 엣지 선택 toolbar와 삭제        |
 | `src/core/flowToAst.ts`              | 그래프 구조 검증과 AST 복원     |
+| `src/core/graphHistory.ts`           | 순서도 undo/redo 스냅샷 이력    |
 | `src/store/useAppStore.ts`           | 그래프 안내와 AST·의사코드 갱신 |
 
 ## 완료 기준
@@ -108,6 +112,7 @@ HTML5 Drag and Drop API는 mouse 중심이며 터치스크린에서 일관되게
 - 마우스와 터치로 기호를 추가할 수 있습니다.
 - 노드 내용과 판단 종류를 편집할 수 있습니다.
 - 노드와 엣지를 연결·삭제할 수 있습니다.
+- 추가·삭제·연결·편집·이동을 undo/redo할 수 있습니다.
 - 올바른 순서도를 AST와 의사코드로 복원할 수 있습니다.
 - 미완성 그래프를 유지하면서 해결 방법을 안내합니다.
 - 중첩 반복과 조건 분기도 왕복 변환할 수 있습니다.
