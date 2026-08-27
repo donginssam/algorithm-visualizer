@@ -18,6 +18,39 @@ describe("AST와 순서도 그래프 변환", () => {
     expect(flowToAst(graph.nodes, graph.edges)).toEqual(program)
   })
 
+  it("일반 동작을 처리 직사각형으로 바꾸고 다시 복원한다", () => {
+    const program = {
+      body: [
+        { type: "action" as const, text: "물을 끓인다." },
+        { type: "action" as const, text: "3분 동안 기다린다." },
+      ],
+    }
+    const graph = astToFlow(program)
+
+    expect(
+      graph.nodes.filter(node => node.data.kind === "process").map(node => node.data.label),
+    ).toEqual(["물을 끓인다.", "3분 동안 기다린다."])
+    expect(flowToAst(graph.nodes, graph.edges)).toEqual(program)
+  })
+
+  it("처리 기호에 ←가 있으면 대입으로 읽고 불완전한 대입은 오류로 안내한다", () => {
+    const graph = astToFlow({ body: [{ type: "action", text: "물을 끓인다." }] })
+    const process = graph.nodes.find(node => node.data.kind === "process")
+    if (!process) throw new Error("처리 기호가 있어야 합니다")
+
+    const assignmentNodes = graph.nodes.map(node =>
+      node.id === process.id ? { ...node, data: { ...node.data, label: "냄비 ← 물" } } : node,
+    )
+    expect(flowToAst(assignmentNodes, graph.edges)).toEqual({
+      body: [{ type: "assign", target: "냄비", expr: "물" }],
+    })
+
+    const invalidNodes = graph.nodes.map(node =>
+      node.id === process.id ? { ...node, data: { ...node.data, label: "냄비 ←" } } : node,
+    )
+    expect(() => flowToAst(invalidNodes, graph.edges)).toThrow("변수 ← 식")
+  })
+
   it("연결이 끊긴 기호를 친절하게 안내한다", () => {
     const graph = astToFlow(examples[0].program)
     const brokenEdges = graph.edges.filter(edge => edge.target !== "terminal-end")

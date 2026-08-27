@@ -24,7 +24,6 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from "react"
 import {
-  ASSIGN_GLYPH,
   INPUT_LABEL,
   INPUT_PREFIX,
   OUTPUT_LABEL,
@@ -150,7 +149,7 @@ function userNode(
           id,
           type: "process",
           position,
-          data: { kind: "process", label: `변수 ${ASSIGN_GLYPH} 값` },
+          data: { kind: "process", label: "처리할 내용" },
         },
       ]
     case "decision":

@@ -5,6 +5,8 @@ function statementLines(statement: Statement, depth: number): string[] {
   const indent = "  ".repeat(depth)
 
   switch (statement.type) {
+    case "action":
+      return [`${indent}${statement.text}`]
     case "assign":
       return [`${indent}${statement.target} ${ASSIGN_GLYPH} ${statement.expr}`]
     case "input":

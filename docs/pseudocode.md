@@ -17,7 +17,8 @@
 
 | 구문      | 입력 형식                     | AST                                             |
 | --------- | ----------------------------- | ----------------------------------------------- |
-| 대입·처리 | `변수 ← 식`                   | `{ type: "assign", target, expr }`              |
+| 일반 동작 | `물을 끓인다.` 같은 일반 문장 | `{ type: "action", text }`                      |
+| 대입      | `변수 ← 식`                   | `{ type: "assign", target, expr }`              |
 | 입력      | `입력: 변수` 또는 `변수 입력` | `{ type: "input", variable }`                   |
 | 출력      | `출력: 식` 또는 `식 출력`     | `{ type: "output", expr }`                      |
 | 반복      | `[조건 반복]` + 들여쓴 본문   | `{ type: "loop", condition, body }`             |
@@ -35,6 +36,11 @@ export interface AssignNode {
   type: "assign"
   target: string
   expr: string
+}
+
+export interface ActionNode {
+  type: "action"
+  text: string
 }
 
 export interface InputNode {
@@ -60,7 +66,7 @@ export interface IfNode {
   elseBody: Statement[]
 }
 
-export type Statement = AssignNode | InputNode | OutputNode | LoopNode | IfNode
+export type Statement = ActionNode | AssignNode | InputNode | OutputNode | LoopNode | IfNode
 
 export interface Program {
   body: Statement[]
@@ -71,6 +77,7 @@ export interface Program {
 
 | 타입         | 필드        | 의미                                                   |
 | ------------ | ----------- | ------------------------------------------------------ |
+| `ActionNode` | `text`      | 실행할 일반 동작 원문                                  |
 | `AssignNode` | `target`    | 값을 저장할 변수 이름                                  |
 | `AssignNode` | `expr`      | 저장할 값 또는 계산식                                  |
 | `InputNode`  | `variable`  | 입력받을 변수 이름                                     |
@@ -92,6 +99,7 @@ export interface Program {
 const program: Program = {
   body: [
     { type: "input", variable: "수" },
+    { type: "action", text: "수를 확인한다." },
     {
       type: "if",
       condition: "수를 2로 나눈 나머지가 0이면",
@@ -146,9 +154,10 @@ const program: Program = {
 3. `시작`과 `끝` 규칙을 검사합니다.
 4. 현재 들여쓰기 깊이를 인자로 받는 `parseBlock`이 문장을 재귀적으로 읽습니다.
 5. 반복과 조건은 다음 단계의 들여쓰기 블록을 자식 문장으로 만듭니다.
-6. 단순 문장은 입력, 출력, 대입 순서로 판별합니다.
+6. 단순 문장은 입력·출력을 먼저 판별하고 `←`가 있으면 대입 형식을 검증합니다.
+7. `[`로 시작했지만 제어문 형식이 아니면 오류로 안내하고, 나머지 문장은 일반 동작으로 읽습니다.
 
-조건식과 계산식의 내부 문법은 해석하지 않습니다. 예를 들어 `합계 + 수 × 수`와 `수가 5보다 작거나 같을 때까지`는 AST에서 문자열 그대로 보존됩니다.
+일반 동작, 조건식과 계산식의 내부 문법은 해석하지 않습니다. 예를 들어 `물을 끓인다.`, `합계 + 수 × 수`, `수가 5보다 작거나 같을 때까지`는 AST에서 문자열 그대로 보존됩니다.
 
 ## 오류 모델
 
@@ -178,6 +187,7 @@ Unexpected token at expression node.
 
 - 들여쓰기는 깊이마다 공백 2칸입니다.
 - 입력과 출력은 각각 `입력: ...`, `출력: ...` 형식입니다.
+- 일반 동작은 `action.text`를 바꾸지 않고 그대로 출력합니다.
 - 반복은 `[${condition} 반복]` 형식입니다.
 - 조건 분기는 `[만약 ${condition}]` 형식이며 `elseBody`가 있을 때만 `[아니면]`을 출력합니다.
 

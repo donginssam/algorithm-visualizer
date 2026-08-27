@@ -13,13 +13,20 @@
  * (예: "수가 5보다 작거나 같을 때까지", "합계 + 수 × 수")
  */
 
-/** 대입/처리: `합계 ← 0` — 파란 직사각형 */
+/** 대입: `합계 ← 0` — 파란 처리 직사각형 */
 export interface AssignNode {
   type: "assign"
   /** 대입 대상 변수 이름 */
   target: string
   /** 대입할 식 (문자열 그대로 보존) */
   expr: string
+}
+
+/** 일반 동작: `물을 끓인다.` — 파란 처리 직사각형 */
+export interface ActionNode {
+  type: "action"
+  /** 실행할 동작 (문자열 그대로 보존) */
+  text: string
 }
 
 /** 입력: `입력: 수` — 분홍 평행사변형 */
@@ -54,7 +61,7 @@ export interface IfNode {
   elseBody: Statement[]
 }
 
-export type Statement = AssignNode | InputNode | OutputNode | LoopNode | IfNode
+export type Statement = ActionNode | AssignNode | InputNode | OutputNode | LoopNode | IfNode
 
 /** 알고리즘 하나 전체. 시작~끝 사이의 문장 목록을 담는다. */
 export interface Program {

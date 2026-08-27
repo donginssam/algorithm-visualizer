@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react"
 
 const RULES = [
+  { what: "일반 동작", how: "물을 끓인다.", symbol: "처리" },
   { what: "값 정하기", how: "합계 ← 0", symbol: "처리" },
   { what: "입력", how: "입력: 수", symbol: "입출력" },
   { what: "출력", how: "출력: 합계", symbol: "입출력" },
@@ -49,7 +50,9 @@ export function SyntaxHelp() {
     >
       <summary>
         <span className="syntax-help-title">문법 도움말</span>
-        <span className="syntax-help-peek">변수 ← 값 · 입력: · 출력: · [조건 반복] · [만약 …]</span>
+        <span className="syntax-help-peek">
+          일반 문장 · 변수 ← 값 · 입력: · 출력: · [조건 반복]
+        </span>
       </summary>
 
       <div className="syntax-help-body">

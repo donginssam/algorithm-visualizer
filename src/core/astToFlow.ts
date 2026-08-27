@@ -58,6 +58,8 @@ function flowNode(
 
 function statementData(statement: Exclude<Statement, { type: "loop" | "if" }>): FlowNodeData {
   switch (statement.type) {
+    case "action":
+      return { kind: "process", label: statement.text }
     case "assign":
       return { kind: "process", label: `${statement.target} ${ASSIGN_GLYPH} ${statement.expr}` }
     case "input":

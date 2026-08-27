@@ -33,6 +33,40 @@ describe("의사코드 파서와 생성기", () => {
     ).toEqual({ body: [{ type: "assign", target: "합계", expr: "수 × 수" }] })
   })
 
+  it("대입이나 제어문이 아닌 자연어 문장을 일반 동작으로 읽고 그대로 출력한다", () => {
+    const source = `시작
+  냄비 ← 물 500ml
+  물을 끓인다.
+  [만약 물이 끓으면]
+    냄비 ← 면
+    냄비 ← 스프
+  3분 동안 물을 끓인다.
+끝`
+    const program = {
+      body: [
+        { type: "assign" as const, target: "냄비", expr: "물 500ml" },
+        { type: "action" as const, text: "물을 끓인다." },
+        {
+          type: "if" as const,
+          condition: "물이 끓으면",
+          thenBody: [
+            { type: "assign" as const, target: "냄비", expr: "면" },
+            { type: "assign" as const, target: "냄비", expr: "스프" },
+          ],
+          elseBody: [],
+        },
+        { type: "action" as const, text: "3분 동안 물을 끓인다." },
+      ],
+    }
+
+    expect(parsePseudocode(source)).toEqual(program)
+    expect(astToText(program)).toBe(source)
+  })
+
+  it("일반 동작을 허용해도 잘못된 제어문 형식은 오류로 안내한다", () => {
+    expect(() => parsePseudocode("시작\n  [만약]\n끝")).toThrow("제어문은")
+  })
+
   it("오류가 난 원본 줄과 쉬운 메시지를 알려 준다", () => {
     try {
       parsePseudocode(`시작

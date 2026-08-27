@@ -92,10 +92,7 @@ function parseSimpleStatement(line: SourceLine): Statement {
     )
   }
 
-  throw new PseudocodeParseError(
-    line.number,
-    "이 문장을 이해하지 못했어요. 대입(←), 입력, 출력 중 하나로 적어 주세요.",
-  )
+  return { type: "action", text: line.text }
 }
 
 /** 공백 2칸 들여쓰기를 사용하는 교육용 의사코드를 AST로 바꿉니다. */

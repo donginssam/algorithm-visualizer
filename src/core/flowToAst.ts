@@ -27,12 +27,18 @@ function statementFromNode(node: AlgorithmFlowNode): Statement {
   const label = node.data.label.trim()
 
   if (node.data.kind === "process") {
+    if (!label) {
+      throw new FlowValidationError("처리 기호 안에 실행할 내용을 적어 주세요.")
+    }
+
     const arrowIndex = label.indexOf(ASSIGN_GLYPH)
+    if (arrowIndex < 0) return { type: "action", text: label }
+
     const target = label.slice(0, arrowIndex).trim()
     const expr = label.slice(arrowIndex + 1).trim()
-    if (arrowIndex < 1 || !target || !expr) {
+    if (!target || !expr) {
       throw new FlowValidationError(
-        `'${label || "처리"}' 기호는 '변수 ${ASSIGN_GLYPH} 식' 형식으로 적어 주세요.`,
+        `'${label}' 대입은 '변수 ${ASSIGN_GLYPH} 식' 형식으로 적어 주세요.`,
       )
     }
     return { type: "assign", target, expr }
