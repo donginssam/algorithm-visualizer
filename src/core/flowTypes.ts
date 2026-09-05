@@ -12,8 +12,8 @@ export interface FlowNodeData extends Record<string, unknown> {
   terminalRole?: TerminalRole
   controlKind?: ControlKind
   /**
-   * 자동 배치기가 정합니다(core/astToFlow.ts). 다음 기호가 놓인 쪽으로 화살표를
-   * 내보내야 예/아니오 선이 서로 교차하지 않습니다.
+   * 새 그래프는 항상 `left`를 저장합니다. 이전 작업 공간에 명시된 방향은 기존
+   * 경로와 어긋나지 않도록 그대로 읽습니다.
    */
   yesSide?: DecisionSide
 }

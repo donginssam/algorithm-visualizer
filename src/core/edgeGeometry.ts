@@ -71,9 +71,9 @@ export function roundedRoutePath(
   return [commands.join(" "), midpoint.x, midpoint.y] as const
 }
 
-/** 경로 정보가 없는 반복 화살표는 오른쪽으로 크게 우회하는 곡선으로 그립니다. */
+/** 경로 정보가 없는 반복 화살표는 왼쪽으로 크게 우회하는 곡선으로 그립니다. */
 export function loopBackPath(sourceX: number, sourceY: number, targetX: number, targetY: number) {
-  const sideX = Math.max(sourceX, targetX) + Math.max(130, Math.abs(sourceX - targetX) / 2 + 80)
+  const sideX = Math.min(sourceX, targetX) - Math.max(130, Math.abs(sourceX - targetX) / 2 + 80)
   const path = [
     `M ${sourceX} ${sourceY}`,
     `C ${sideX} ${sourceY + 32}, ${sideX} ${targetY - 32}, ${targetX} ${targetY}`,

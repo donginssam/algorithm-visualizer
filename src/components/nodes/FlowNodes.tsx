@@ -144,9 +144,8 @@ export function ProcessNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>
 /**
  * 판단 기호의 갈래 연결점.
  *
- * 마름모의 좌우 꼭짓점에서 나갑니다. 두 갈래가 바닥에서 나오면 다음 기호가
- * 반대편에 있을 때 선이 엇갈려 예/아니오를 구분할 수 없습니다. 어느 쪽으로
- * 내보낼지는 자동 배치기가 정합니다(core/astToFlow.ts).
+ * 마름모의 왼쪽 꼭짓점은 '예', 오른쪽 꼭짓점은 '아니오'로 사용합니다. 자동
+ * 배치기도 같은 순서로 본문을 놓아 연결선이 서로 엇갈리지 않게 합니다.
  */
 function BranchHandle({
   id,

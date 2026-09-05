@@ -525,11 +525,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     const sourceWidth = sourceNode?.measured?.width ?? NODE_SIZES.process.width
     const sourceHeight = sourceNode?.measured?.height ?? NODE_SIZES.process.height
     const targetWidth = targetNode?.measured?.width ?? NODE_SIZES.decision.width
-    const graphRight = Math.max(
-      ...nodesRef.current.map(
-        node => node.position.x + (node.measured?.width ?? NODE_SIZES.decision.width),
-      ),
-    )
+    const graphLeft = Math.min(...nodesRef.current.map(node => node.position.x))
     const routePoints =
       branch === "loop-back" && sourceNode && targetNode
         ? [
@@ -541,8 +537,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
               x: sourceNode.position.x + sourceWidth / 2,
               y: sourceNode.position.y + sourceHeight + 34,
             },
-            { x: graphRight + 46, y: sourceNode.position.y + sourceHeight + 34 },
-            { x: graphRight + 46, y: targetNode.position.y - 34 },
+            { x: graphLeft - 46, y: sourceNode.position.y + sourceHeight + 34 },
+            { x: graphLeft - 46, y: targetNode.position.y - 34 },
             { x: targetNode.position.x + targetWidth / 2, y: targetNode.position.y - 34 },
             { x: targetNode.position.x + targetWidth / 2, y: targetNode.position.y },
           ]

@@ -9,7 +9,7 @@ interface EdgeActions {
 
 export const EdgeActionContext = createContext<EdgeActions | null>(null)
 
-/** 선택한 화살표를 터치로도 삭제할 수 있고, 반복선은 노드 오른쪽으로 우회시킵니다. */
+/** 선택한 화살표를 터치로도 삭제할 수 있고, 반복선은 노드 왼쪽으로 우회시킵니다. */
 export function FlowEdge({
   id,
   sourceX,

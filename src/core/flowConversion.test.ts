@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { examples } from "../examples"
-import { astToFlow } from "./astToFlow"
+import { astToFlow, yesSideOf } from "./astToFlow"
 import { flowToAst, FlowValidationError } from "./flowToAst"
 
 describe("AST와 순서도 그래프 변환", () => {
@@ -12,6 +12,44 @@ describe("AST와 순서도 그래프 변환", () => {
     decision: { width: 220, height: 124 },
     junction: { width: 18, height: 18 },
   } as const
+
+  const pathsIntersect = (
+    first: Array<{ x: number; y: number }>,
+    second: Array<{ x: number; y: number }>,
+  ) => {
+    const between = (value: number, a: number, b: number) =>
+      value >= Math.min(a, b) && value <= Math.max(a, b)
+    const segments = (points: Array<{ x: number; y: number }>) =>
+      points.slice(1).map((point, index) => ({ from: points[index], to: point }))
+
+    return segments(first).some(a =>
+      segments(second).some(b => {
+        const aVertical = a.from.x === a.to.x
+        const bVertical = b.from.x === b.to.x
+        if (aVertical && bVertical) {
+          return (
+            a.from.x === b.from.x &&
+            Math.max(Math.min(a.from.y, a.to.y), Math.min(b.from.y, b.to.y)) <=
+              Math.min(Math.max(a.from.y, a.to.y), Math.max(b.from.y, b.to.y))
+          )
+        }
+        if (!aVertical && !bVertical) {
+          return (
+            a.from.y === b.from.y &&
+            Math.max(Math.min(a.from.x, a.to.x), Math.min(b.from.x, b.to.x)) <=
+              Math.min(Math.max(a.from.x, a.to.x), Math.max(b.from.x, b.to.x))
+          )
+        }
+
+        const vertical = aVertical ? a : b
+        const horizontal = aVertical ? b : a
+        return (
+          between(vertical.from.x, horizontal.from.x, horizontal.to.x) &&
+          between(horizontal.from.y, vertical.from.y, vertical.to.y)
+        )
+      }),
+    )
+  }
 
   it.each(examples)("$title 예제를 그래프로 바꾸고 다시 복원한다", ({ program }) => {
     const graph = astToFlow(program)
@@ -116,9 +154,7 @@ describe("AST와 순서도 그래프 변환", () => {
     expect(() => flowToAst([...graph.nodes, duplicate], graph.edges)).toThrow("같은 기호")
   })
 
-  // 두 갈래가 늘 같은 자리에서 나오면 다음 기호가 반대편에 놓였을 때 선이 엇갈려
-  // 어느 쪽이 '예'인지 알 수 없습니다.
-  it.each(examples)("$title 판단 기호의 예/아니오가 서로 반대쪽으로 나간다", ({ program }) => {
+  it.each(examples)("$title 판단 기호는 예가 왼쪽, 아니오가 오른쪽에서 나간다", ({ program }) => {
     const graph = astToFlow(program)
     const decisions = graph.nodes.filter(node => node.data.kind === "decision")
     expect(decisions.length).toBeGreaterThan(0)
@@ -134,19 +170,123 @@ describe("AST와 순서도 그래프 변환", () => {
       )
       expect(branches).toHaveLength(2)
 
-      const exits = branches.map(edge => {
+      for (const edge of branches) {
         const start = edge.data?.routePoints?.[0]
         const turn = edge.data?.routePoints?.[1]
         // 좌우 꼭짓점(높이의 한가운데)에서 나가야 합니다.
         expect(start?.y).toBe(middle)
-        expect([left, right]).toContain(start?.x)
+        expect(start?.x).toBe(edge.data?.branch === "yes" ? left : right)
         // 나간 방향이 그대로 유지되어야 도형을 가로지르지 않습니다.
         expect(start!.x === left ? turn!.x <= left : turn!.x >= right).toBe(true)
-        return start!.x
-      })
-
-      expect(new Set(exits).size).toBe(2)
+      }
     }
+  })
+
+  it("새 조건과 반복 판단의 기본 예 방향을 모두 왼쪽으로 통일한다", () => {
+    expect(yesSideOf({ kind: "decision", label: "조건", controlKind: "if" })).toBe("left")
+    expect(yesSideOf({ kind: "decision", label: "반복 조건", controlKind: "loop" })).toBe("left")
+  })
+
+  it("아니오 본문이 없는 조건도 예는 왼쪽, 아니오는 오른쪽에서 출발한다", () => {
+    const graph = astToFlow({
+      body: [
+        {
+          type: "if",
+          condition: "물이 끓으면",
+          thenBody: [{ type: "action", text: "불을 끈다." }],
+          elseBody: [],
+        },
+      ],
+    })
+    const decision = graph.nodes.find(node => node.data.kind === "decision")
+    if (!decision) throw new Error("판단 기호가 있어야 합니다")
+
+    const left = decision.position.x
+    const right = left + sizes.decision.width
+    const branchStartX = (branch: "yes" | "no") =>
+      graph.edges.find(edge => edge.source === decision.id && edge.data?.branch === branch)?.data
+        ?.routePoints?.[0]?.x
+
+    expect(branchStartX("yes")).toBe(left)
+    expect(branchStartX("no")).toBe(right)
+  })
+
+  it.each([
+    {
+      title: "조건 분기",
+      program: {
+        body: [
+          {
+            type: "if" as const,
+            condition: "물이 끓으면",
+            thenBody: [{ type: "action" as const, text: "면을 넣는다." }],
+            elseBody: [{ type: "action" as const, text: "더 끓인다." }],
+          },
+        ],
+      },
+      controlKind: "if",
+    },
+    {
+      title: "반복 판단",
+      program: {
+        body: [
+          {
+            type: "loop" as const,
+            condition: "물이 끓을 때까지",
+            body: [{ type: "action" as const, text: "물을 가열한다." }],
+          },
+          { type: "action" as const, text: "불을 끈다." },
+        ],
+      },
+      controlKind: "loop",
+    },
+  ])("$title의 예 본문은 왼쪽, 아니오 본문은 오른쪽에 배치한다", ({ program, controlKind }) => {
+    const graph = astToFlow(program)
+    const decision = graph.nodes.find(
+      node => node.data.kind === "decision" && node.data.controlKind === controlKind,
+    )
+    if (!decision) throw new Error("판단 기호가 있어야 합니다")
+
+    const yesEdge = graph.edges.find(
+      edge => edge.source === decision.id && edge.data?.branch === "yes",
+    )
+    const noEdge = graph.edges.find(
+      edge => edge.source === decision.id && edge.data?.branch === "no",
+    )
+    const yesTarget = graph.nodes.find(node => node.id === yesEdge?.target)
+    const noTarget = graph.nodes.find(node => node.id === noEdge?.target)
+    if (!yesTarget || !noTarget) throw new Error("두 갈래의 첫 기호가 있어야 합니다")
+
+    const centerX = (node: (typeof graph.nodes)[number]) =>
+      node.position.x + sizes[node.data.kind].width / 2
+    expect(centerX(yesTarget)).toBeLessThan(centerX(noTarget))
+  })
+
+  it("반복 복귀선은 왼쪽 통로를 사용해 오른쪽 아니오 진행선과 교차하지 않는다", () => {
+    const graph = astToFlow({
+      body: [
+        {
+          type: "loop",
+          condition: "물이 끓을 때까지",
+          body: [{ type: "action", text: "물을 가열한다." }],
+        },
+        { type: "action", text: "불을 끈다." },
+      ],
+    })
+    const decision = graph.nodes.find(
+      node => node.data.kind === "decision" && node.data.controlKind === "loop",
+    )
+    if (!decision) throw new Error("반복 판단 기호가 있어야 합니다")
+
+    const noPath = graph.edges.find(
+      edge => edge.source === decision.id && edge.data?.branch === "no",
+    )?.data?.routePoints
+    const loopPath = graph.edges.find(edge => edge.data?.branch === "loop-back")?.data?.routePoints
+    if (!noPath || !loopPath) throw new Error("반복의 진행선과 복귀선이 있어야 합니다")
+
+    const graphLeft = Math.min(...graph.nodes.map(node => node.position.x))
+    expect(Math.min(...loopPath.map(point => point.x))).toBeLessThan(graphLeft)
+    expect(pathsIntersect(loopPath, noPath)).toBe(false)
   })
 
   it("같은 종류의 기호도 서로 다른 위치에 자동 배치한다", () => {

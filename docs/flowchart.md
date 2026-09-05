@@ -15,7 +15,7 @@
 | `decision` | 반복·조건      | 마름모      | `loop`, `if`          |
 | `junction` | 조건 분기 합류 | 작은 원     | AST에는 노출되지 않음 |
 
-판단 노드에는 `controlKind`가 있어 반복과 조건을 구분하고, `yesSide`가 `예` 화살표의 좌우 방향을 기록합니다. 엣지의 `branch`는 `next`, `yes`, `no`, `loop-back` 중 하나입니다.
+판단 노드에는 `controlKind`가 있어 반복과 조건을 구분합니다. 새 그래프의 `yesSide`는 항상 `left`이며, 이전 저장 데이터에 명시된 방향은 기존 경로와의 일관성을 위해 유지합니다. 엣지의 `branch`는 `next`, `yes`, `no`, `loop-back` 중 하나입니다.
 
 ## AST → 그래프
 
@@ -35,7 +35,7 @@ flowchart TD
   decision -->|"아니오"| after["다음 기호"]
 ```
 
-반복 본문의 마지막 출구는 판단 노드로 되돌아갑니다. 되돌아가는 선은 일반 흐름과 겹치지 않도록 전체 그래프 오른쪽의 전용 lane을 사용합니다. 중첩 반복은 짧은 반복부터 lane을 배정하고 바깥쪽으로 26px씩 넓힙니다.
+반복 본문의 마지막 출구는 판단 노드로 되돌아갑니다. `예` 본문이 왼쪽에 있으므로 되돌아가는 선도 전체 그래프 왼쪽의 전용 lane을 사용해 오른쪽 `아니오` 진행선과 겹치지 않게 합니다. 중첩 반복은 짧은 반복부터 lane을 배정하고 바깥쪽으로 26px씩 넓힙니다.
 
 ### 조건 분기
 
@@ -67,9 +67,9 @@ marginy = 28
 
 ### 판단 기호의 좌우 방향
 
-`예`와 `아니오`는 마름모 아래쪽 한 점이 아니라 서로 반대쪽 꼭짓점에서 출발합니다. 배치가 끝난 뒤 `decisionSides`가 두 목적지의 중심을 비교하여 다음 기호가 있는 쪽을 `예` 방향으로 선택합니다.
+`예`는 마름모의 왼쪽 꼭짓점, `아니오`는 오른쪽 꼭짓점에서 출발합니다. `decisionOrderConstraints`는 Dagre에 `예`의 첫 기호가 `아니오`의 첫 기호보다 왼쪽에 오도록 좌우 순서를 전달합니다. 따라서 방향을 고정해도 분기 본문과 화살표가 서로 엇갈리지 않습니다.
 
-다음 세 곳은 반드시 같은 `yesSide`를 사용해야 합니다.
+다음 세 곳은 반드시 같은 왼쪽 `예` 규칙을 사용해야 합니다.
 
 - [`src/core/astToFlow.ts`](../src/core/astToFlow.ts)의 경로 계산
 - [`src/components/nodes/FlowNodes.tsx`](../src/components/nodes/FlowNodes.tsx)의 연결점 위치
@@ -130,4 +130,4 @@ marginy = 28
 | 기호 색상·윤곽선    | `styles/_tokens.scss`, `FlowNodes.tsx`, `Palette.tsx`, `flowToSvg.ts`                  |
 | 일반·반복 화살표 색 | `styles/_tokens.scss`, `astToFlow.ts`, `flowToSvg.ts`                                  |
 | 화살표 굵기·화살촉  | CSS `--edge-width`, `ARROW_MARKER_SIZE`, SVG marker 크기                               |
-| 판단 좌우 연결      | `yesSide`, 노드 Handle, 경로 생성, SVG source point                                    |
+| 판단 좌우 연결      | Dagre `constraints`, `yesSideOf`, 노드 Handle, 경로 생성, SVG source point             |

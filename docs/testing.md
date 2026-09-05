@@ -195,7 +195,7 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 | 빈 프로그램 규칙 | parser, astToText, astToFlow, flowToAst, 초기 store                                                                                       |
 | 저장 형식        | `workspaceStore` 직렬화·검증, store 초깃값, `FlowCanvas`의 `restoredGraph`                                                                |
 | 노드 실제 크기   | CSS 도형 치수, `NODE_SIZES`, dagre, edge geometry, PNG                                                                                    |
-| 판단 `yesSide`   | 자동 배치, React Flow Handle, routePoints, PNG source point                                                                               |
+| 판단 좌우 방향   | Dagre 좌우 제약, `yesSideOf`, React Flow Handle, routePoints, PNG source point                                                            |
 | 기호 윤곽 좌표   | 팔레트 SVG, 캔버스 SVG, 저장 SVG                                                                                                          |
 | 브랜드 마크      | `public/icon.svg`, `public/icon-maskable.svg`, 여기서 뽑은 `icon-*.png`, `App.tsx`의 `BrandMark`                                          |
 | 화살표 색·굵기   | CSS 변수, React Flow marker, 저장 SVG marker                                                                                              |

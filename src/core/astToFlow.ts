@@ -76,48 +76,31 @@ export function oppositeSide(side: DecisionSide): DecisionSide {
 /**
  * 판단 기호의 '예'가 나가는 쪽.
  *
- * 자동 배치를 해 봐야 알 수 있으므로 `layoutFlowGraph`가 노드 데이터에 적어 둡니다.
- * 아직 정해지지 않았으면(팔레트에서 갓 놓은 기호 등) 기본값을 씁니다.
+ * 조건과 반복 모두 교과서에서 같은 방향으로 읽을 수 있도록 왼쪽으로 고정합니다.
+ * 이전에 저장된 그래프에 방향이 명시되어 있으면 기존 경로와의 일관성을 유지합니다.
  */
 export function yesSideOf(data: FlowNodeData): DecisionSide {
-  return data.yesSide ?? (data.controlKind === "loop" ? "right" : "left")
+  return data.yesSide ?? "left"
 }
 
 /**
- * 판단 기호마다 예/아니오가 나갈 쪽을 정합니다.
+ * Dagre가 판단의 두 갈래를 같은 순위에 놓을 때 적용할 좌우 순서입니다.
  *
- * 늘 같은 쪽으로 내보내면 다음 기호가 반대편에 놓였을 때 두 선이 마름모 아래에서
- * 서로 엇갈려, 어느 선이 '예'인지 알아볼 수 없습니다. 다음 기호가 있는 쪽으로
- * 내보내면 교차가 생기지 않습니다.
+ * 연결점만 왼쪽으로 바꾸면 본문이 반대편에 배치되어 선이 교차할 수 있습니다.
+ * `예`의 첫 기호를 왼쪽, `아니오`의 첫 기호를 오른쪽에 두도록 배치기에 함께
+ * 알려 화면 연결점과 실제 본문 위치를 일치시킵니다.
  */
-function decisionSides(
-  nodes: AlgorithmFlowNode[],
-  edges: AlgorithmFlowEdge[],
-  nodesById: Map<string, AlgorithmFlowNode>,
-): Map<string, DecisionSide> {
-  const centerX = (id: string | undefined) => {
-    const node = id ? nodesById.get(id) : undefined
-    return node ? node.position.x + NODE_SIZES[node.data.kind].width / 2 : undefined
-  }
-  const sides = new Map<string, DecisionSide>()
+function decisionOrderConstraints(graph: FlowGraph): Array<{ left: string; right: string }> {
+  return graph.nodes.flatMap(node => {
+    if (node.data.kind !== "decision") return []
 
-  for (const node of nodes) {
-    if (node.data.kind !== "decision") continue
+    const outgoing = graph.edges.filter(edge => edge.source === node.id)
+    const yesTarget = outgoing.find(edge => edge.data?.branch === "yes")?.target
+    const noTarget = outgoing.find(edge => edge.data?.branch === "no")?.target
+    if (!yesTarget || !noTarget || yesTarget === noTarget) return []
 
-    const outgoing = edges.filter(edge => edge.source === node.id)
-    const yesX = centerX(outgoing.find(edge => edge.data?.branch === "yes")?.target)
-    const noX = centerX(outgoing.find(edge => edge.data?.branch === "no")?.target)
-    // 두 갈래가 같은 열에 놓였다면(합류점으로 바로 가는 경우 등) 기본값을 씁니다.
-    const decided =
-      yesX === undefined || noX === undefined || Math.abs(yesX - noX) < 1
-        ? yesSideOf({ ...node.data, yesSide: undefined })
-        : yesX < noX
-          ? "left"
-          : "right"
-    sides.set(node.id, decided)
-  }
-
-  return sides
+    return [{ left: yesTarget, right: noTarget }]
+  })
 }
 
 function layoutFlowGraph(graph: FlowGraph): FlowGraph {
@@ -140,7 +123,10 @@ function layoutFlowGraph(graph: FlowGraph): FlowGraph {
 
   // Dagre 3의 동적 캐시는 서로 다른 예제/StrictMode 렌더 사이에서 좌표를 섞을 수 있습니다.
   // 매 변환을 독립 배치해 같은 입력은 항상 같은 위치를 얻도록 합니다.
-  dagre.layout(layoutGraph, { useDynamic: false })
+  dagre.layout(layoutGraph, {
+    useDynamic: false,
+    constraints: decisionOrderConstraints(graph),
+  })
 
   const positioned = graph.nodes.map(node => {
     const point = layoutGraph.node(node.id)
@@ -150,14 +136,10 @@ function layoutFlowGraph(graph: FlowGraph): FlowGraph {
       position: { x: point.x - size.width / 2, y: point.y - size.height / 2 },
     }
   })
-  const yesSideById = decisionSides(
-    positioned,
-    graph.edges,
-    new Map(positioned.map(node => [node.id, node])),
-  )
   const nodes = positioned.map(node => {
-    const side = yesSideById.get(node.id)
-    return side ? { ...node, data: { ...node.data, yesSide: side } } : node
+    return node.data.kind === "decision"
+      ? { ...node, data: { ...node.data, yesSide: "left" as const } }
+      : node
   })
   // 아래 화살표 경로 계산은 반드시 yesSide가 적힌 노드를 봐야 합니다. 손잡이(화면)와
   // 경로(선)가 서로 다른 쪽을 고르면 선이 도형을 가로질러 버립니다.
@@ -187,7 +169,7 @@ function layoutFlowGraph(graph: FlowGraph): FlowGraph {
     })
     .sort((a, b) => a.span - b.span)
   const loopLaneById = new Map(
-    loopEdges.map((entry, index) => [entry.edge.id, graphRight + 46 + index * 26]),
+    loopEdges.map((entry, index) => [entry.edge.id, graphLeft - 46 - index * 26]),
   )
 
   const edges = graph.edges.map(edge => {
