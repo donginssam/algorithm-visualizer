@@ -3,7 +3,12 @@ import type { Edge, Node } from "@xyflow/react"
 export type FlowNodeKind = "terminal" | "input" | "output" | "process" | "decision" | "junction"
 export type TerminalRole = "start" | "end"
 export type ControlKind = "if" | "loop"
-/** 판단 기호에서 '예' 화살표가 나가는 쪽. '아니오'는 반대쪽으로 나갑니다. */
+/**
+ * 판단 기호에서 갈래가 나가는 쪽.
+ *
+ * '예'는 항상 왼쪽, '아니오'는 항상 오른쪽입니다(core/astToFlow.ts의 YES_SIDE).
+ * 기호마다 다르게 두지 않으므로 노드 데이터에는 저장하지 않습니다.
+ */
 export type DecisionSide = "left" | "right"
 
 export interface FlowNodeData extends Record<string, unknown> {
@@ -11,11 +16,6 @@ export interface FlowNodeData extends Record<string, unknown> {
   kind: FlowNodeKind
   terminalRole?: TerminalRole
   controlKind?: ControlKind
-  /**
-   * 새 그래프는 항상 `left`를 저장합니다. 이전 작업 공간에 명시된 방향은 기존
-   * 경로와 어긋나지 않도록 그대로 읽습니다.
-   */
-  yesSide?: DecisionSide
 }
 
 export interface FlowEdgeData extends Record<string, unknown> {

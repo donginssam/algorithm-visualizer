@@ -15,8 +15,8 @@ import {
   LOOP_EDGE_COLOR as LOOP_EDGE_STROKE,
   SHAPE_FILL,
 } from "../constants/flowColors"
-import { NODE_SIZES, oppositeSide, yesSideOf } from "./astToFlow"
-import { loopBackPath, roundedRoutePath, type RoutePoint } from "./edgeGeometry"
+import { sizeOf, sourcePoint, targetPoint } from "./nodeGeometry"
+import { loopBackPath, roundedRoutePath } from "./edgeGeometry"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./flowTypes"
 import { SHAPE_OUTLINE_POINTS, type ShapePoint } from "./shapeGeometry"
 
@@ -46,33 +46,6 @@ function escapeXml(value: string): string {
 
 function round(value: number): number {
   return Math.round(value * 100) / 100
-}
-
-function sizeOf(node: AlgorithmFlowNode) {
-  const fallback = NODE_SIZES[node.data.kind] ?? NODE_SIZES.process
-  return {
-    width: node.measured?.width ?? fallback.width,
-    height: node.measured?.height ?? fallback.height,
-  }
-}
-
-/** 판단 기호의 예/아니오는 마름모의 좌우 꼭짓점에서 나갑니다(FlowNodes.tsx와 동일). */
-function sourcePoint(node: AlgorithmFlowNode, handle: string | null | undefined): RoutePoint {
-  const { width, height } = sizeOf(node)
-  if (node.data.kind === "decision" && (handle === "yes" || handle === "no")) {
-    const yesSide = yesSideOf(node.data)
-    const side = handle === "yes" ? yesSide : oppositeSide(yesSide)
-    return {
-      x: side === "left" ? node.position.x : node.position.x + width,
-      y: node.position.y + height / 2,
-    }
-  }
-  return { x: node.position.x + width / 2, y: node.position.y + height }
-}
-
-function targetPoint(node: AlgorithmFlowNode): RoutePoint {
-  const { width } = sizeOf(node)
-  return { x: node.position.x + width / 2, y: node.position.y }
 }
 
 /** SHAPE_OUTLINE_POINTS(0~1 정규화 좌표)를 도형의 실제 픽셀 위치·크기로 늘려 그립니다. */

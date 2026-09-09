@@ -31,7 +31,9 @@ import {
   PSEUDOCODE_SYMBOLS,
 } from "../constants/pseudocode"
 import type { Program } from "../core/ast"
-import { arrowMarker, astToFlow, NODE_SIZES } from "../core/astToFlow"
+import { astToFlow } from "../core/astToFlow"
+import { edgeAppearance, loopBackRoute } from "../core/flowEdges"
+import { changeDecisionKind } from "../core/decisionKind"
 import { flowToAst, FlowValidationError } from "../core/flowToAst"
 import { flowToSvg, graphBounds } from "../core/flowToSvg"
 import { cloneFlowGraph, GraphHistory } from "../core/graphHistory"
@@ -521,37 +523,21 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       : connection.sourceHandle === "yes" || connection.sourceHandle === "no"
         ? connection.sourceHandle
         : "next"
-    const sourceNode = nodesRef.current.find(node => node.id === connection.source)
-    const sourceWidth = sourceNode?.measured?.width ?? NODE_SIZES.process.width
-    const sourceHeight = sourceNode?.measured?.height ?? NODE_SIZES.process.height
-    const targetWidth = targetNode?.measured?.width ?? NODE_SIZES.decision.width
-    const graphLeft = Math.min(...nodesRef.current.map(node => node.position.x))
     const routePoints =
-      branch === "loop-back" && sourceNode && targetNode
-        ? [
-            {
-              x: sourceNode.position.x + sourceWidth / 2,
-              y: sourceNode.position.y + sourceHeight,
-            },
-            {
-              x: sourceNode.position.x + sourceWidth / 2,
-              y: sourceNode.position.y + sourceHeight + 34,
-            },
-            { x: graphLeft - 46, y: sourceNode.position.y + sourceHeight + 34 },
-            { x: graphLeft - 46, y: targetNode.position.y - 34 },
-            { x: targetNode.position.x + targetWidth / 2, y: targetNode.position.y - 34 },
-            { x: targetNode.position.x + targetWidth / 2, y: targetNode.position.y },
-          ]
+      branch === "loop-back"
+        ? loopBackRoute(
+            nodesRef.current,
+            connection.source,
+            connection.sourceHandle,
+            connection.target,
+          )
         : undefined
     const next = addEdge<AlgorithmFlowEdge>(
       {
         ...connection,
         id: `user-edge-${Date.now()}-${userNodeSequence++}`,
-        type: branch === "loop-back" ? "loop-back" : "editable",
-        label: branch === "yes" ? "예" : branch === "no" ? "아니오" : undefined,
-        markerEnd: arrowMarker(branch),
+        ...edgeAppearance(branch, connection.sourceHandle),
         data: { branch, routePoints },
-        className: branch === "loop-back" ? "loop-back-edge" : undefined,
       },
       edgesRef.current,
     )
@@ -661,27 +647,20 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     )
     let nextEdges = edgesRef.current
 
-    if (kind === "decision" && editing.originalControlKind !== editing.controlKind) {
-      const junctionId = `${editing.id}-junction`
-      if (editing.controlKind === "loop") {
-        nextNodes = nextNodes.filter(node => node.id !== junctionId)
-        nextEdges = nextEdges.filter(
-          edge => edge.source !== junctionId && edge.target !== junctionId,
-        )
-      } else if (!nextNodes.some(node => node.id === junctionId)) {
-        const decision = nextNodes.find(node => node.id === editing.id)
-        if (decision) {
-          nextNodes = [
-            ...nextNodes,
-            {
-              id: junctionId,
-              type: "junction",
-              position: { x: decision.position.x + 101, y: decision.position.y + 210 },
-              data: { kind: "junction", label: "합류" },
-            },
-          ]
-        }
-      }
+    // 조건 분기와 반복은 흐름의 짜임이 다릅니다. 기호는 그대로 두고 화살표만 옮겨
+    // 바꾼 즉시 다시 이어진 순서도가 되게 합니다.
+    if (
+      kind === "decision" &&
+      editing.controlKind &&
+      editing.originalControlKind !== editing.controlKind
+    ) {
+      const converted = changeDecisionKind(
+        { nodes: nextNodes, edges: nextEdges },
+        editing.id,
+        editing.controlKind,
+      )
+      nextNodes = converted.nodes
+      nextEdges = converted.edges
     }
 
     commitGraph(nextNodes, nextEdges)

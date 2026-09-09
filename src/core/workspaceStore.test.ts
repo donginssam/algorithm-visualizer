@@ -109,4 +109,53 @@ describe("작업 내용 저장", () => {
   ])("%s는 무시하고 빈 화면에서 시작한다", (_name, raw) => {
     expect(parseWorkspace(raw)).toBeNull()
   })
+
+  it("예전에 저장한 갈래 경로가 지금 방향과 어긋나면 지운다", () => {
+    const graph = astToFlow({
+      body: [
+        {
+          type: "if",
+          condition: "짝수이면",
+          thenBody: [{ type: "action", text: "센다." }],
+          elseBody: [{ type: "action", text: "지나간다." }],
+        },
+      ],
+    })
+    const decision = graph.nodes.find(node => node.data.kind === "decision")
+    if (!decision) throw new Error("판단 기호가 있어야 합니다")
+
+    // '예'가 오른쪽에서 나가던 시절의 저장본을 흉내 냅니다.
+    const stale = graph.edges.map(edge =>
+      edge.source === decision.id && edge.sourceHandle === "yes"
+        ? {
+            ...edge,
+            data: {
+              ...edge.data,
+              routePoints: [{ x: decision.position.x + 220, y: decision.position.y + 62 }],
+            },
+          }
+        : edge,
+    )
+    const restored = parseWorkspace(
+      serializeWorkspace({
+        code: "시작\n끝",
+        program: { body: [] },
+        source: "flow",
+        nodes: graph.nodes,
+        edges: stale,
+      }),
+    )
+
+    const yesEdge = restored?.edges.find(
+      edge => edge.source === decision.id && edge.sourceHandle === "yes",
+    )
+    expect(yesEdge).toBeDefined()
+    expect(yesEdge?.data?.routePoints).toBeUndefined()
+
+    // 방향이 맞는 화살표의 경로는 건드리지 않습니다.
+    const noEdge = restored?.edges.find(
+      edge => edge.source === decision.id && edge.sourceHandle === "no",
+    )
+    expect(noEdge?.data?.routePoints?.length).toBeGreaterThan(1)
+  })
 })

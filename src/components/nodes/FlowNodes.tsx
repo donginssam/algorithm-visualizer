@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react"
 import { Handle, NodeToolbar, Position, type NodeProps } from "@xyflow/react"
-import { oppositeSide, yesSideOf } from "../../core/astToFlow"
+import { branchSide } from "../../core/nodeGeometry"
 import type { AlgorithmFlowNode, DecisionSide } from "../../core/flowTypes"
 import { SHAPE_OUTLINE_POINTS } from "../../core/shapeGeometry"
 
@@ -170,8 +170,6 @@ function BranchHandle({
 }
 
 export function DecisionNode({ id, data, selected }: NodeProps<AlgorithmFlowNode>) {
-  const yesSide = yesSideOf(data)
-
   return (
     <div className="node-frame decision-frame">
       <ActionToolbar id={id} selected={selected} />
@@ -179,8 +177,8 @@ export function DecisionNode({ id, data, selected }: NodeProps<AlgorithmFlowNode
       <Shape className="decision-shape" outline={SHAPE_OUTLINES.decision}>
         <span>{data.label}</span>
       </Shape>
-      <BranchHandle id="yes" side={yesSide} caption="예" />
-      <BranchHandle id="no" side={oppositeSide(yesSide)} caption="아니오" />
+      <BranchHandle id="yes" side={branchSide("yes")} caption="예" />
+      <BranchHandle id="no" side={branchSide("no")} caption="아니오" />
     </div>
   )
 }

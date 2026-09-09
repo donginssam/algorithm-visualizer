@@ -10,6 +10,7 @@
  */
 
 import type { Program } from "./ast"
+import { branchSide, NODE_SIZES } from "./nodeGeometry"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./flowTypes"
 
 /** 저장 형식이 바뀌면 올립니다. 예전 값은 읽지 않고 버립니다. */
@@ -125,8 +126,39 @@ export function parseWorkspace(raw: string | null): Workspace | null {
     program: parsed.program as unknown as Program,
     source: parsed.source,
     nodes: parsed.nodes,
-    edges: parsed.edges,
+    edges: withCurrentBranchSides(parsed.nodes, parsed.edges),
   }
+}
+
+/**
+ * 예전에 저장한 갈래 경로를 지금 규칙에 맞춥니다.
+ *
+ * 한때는 판단마다 '예'가 나가는 쪽을 따로 정해 노드에 적어 두었습니다. 지금은
+ * 예가 늘 왼쪽이므로, 그 시절에 저장한 순서도를 열면 연결점은 왼쪽인데 경로는
+ * 오른쪽 꼭짓점에서 시작해 선이 마름모를 가로지릅니다. 어긋난 경로만 지우면
+ * 그 화살표는 연결점을 잇는 기본 모양으로 다시 그려집니다.
+ */
+function withCurrentBranchSides(
+  nodes: AlgorithmFlowNode[],
+  edges: AlgorithmFlowEdge[],
+): AlgorithmFlowEdge[] {
+  const decisions = new Map(
+    nodes.filter(node => node.data.kind === "decision").map(node => [node.id, node]),
+  )
+
+  return edges.map(edge => {
+    const start = edge.data?.routePoints?.[0]
+    const decision = decisions.get(edge.source)
+    if (!start || !decision) return edge
+    if (edge.sourceHandle !== "yes" && edge.sourceHandle !== "no") return edge
+
+    const width = decision.measured?.width ?? NODE_SIZES.decision.width
+    const expected =
+      branchSide(edge.sourceHandle) === "left" ? decision.position.x : decision.position.x + width
+    if (Math.abs(start.x - expected) <= 1) return edge
+
+    return { ...edge, data: { ...edge.data, routePoints: undefined } }
+  })
 }
 
 /*

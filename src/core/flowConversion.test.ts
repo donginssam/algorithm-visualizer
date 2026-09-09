@@ -1,9 +1,50 @@
 import { describe, expect, it } from "vitest"
 import { examples } from "../examples"
-import { astToFlow, yesSideOf } from "./astToFlow"
+import type { Program } from "./ast"
+import { astToFlow } from "./astToFlow"
+import { branchSide, NODE_SIZES } from "./nodeGeometry"
 import { flowToAst, FlowValidationError } from "./flowToAst"
 
 describe("AST와 순서도 그래프 변환", () => {
+  const branchBodies: Program["body"][] = [
+    [{ type: "action", text: "처리" }],
+    [{ type: "if", condition: "안쪽", thenBody: [{ type: "action", text: "참" }], elseBody: [] }],
+    [
+      {
+        type: "if",
+        condition: "안쪽",
+        thenBody: [
+          { type: "action", text: "첫째" },
+          { type: "action", text: "둘째" },
+        ],
+        elseBody: [{ type: "action", text: "거짓" }],
+      },
+    ],
+    [{ type: "loop", condition: "반복", body: [{ type: "action", text: "본문" }] }],
+  ]
+
+  it.each(
+    branchBodies.flatMap((thenBody, i) =>
+      branchBodies.map((elseBody, j) => ({ thenBody, elseBody, name: `${i}-${j}` })),
+    ),
+  )("중첩 분기 $name의 노드가 겹치지 않고 복원된다", ({ thenBody, elseBody }) => {
+    const program: Program = { body: [{ type: "if", condition: "바깥", thenBody, elseBody }] }
+    const graph = astToFlow(program)
+    expect(flowToAst(graph.nodes, graph.edges)).toEqual(program)
+    for (const [index, node] of graph.nodes.entries()) {
+      const size = NODE_SIZES[node.data.kind]
+      for (const other of graph.nodes.slice(index + 1)) {
+        const otherSize = NODE_SIZES[other.data.kind]
+        const overlaps =
+          node.position.x < other.position.x + otherSize.width &&
+          other.position.x < node.position.x + size.width &&
+          node.position.y < other.position.y + otherSize.height &&
+          other.position.y < node.position.y + size.height
+        expect(overlaps, `${node.id} / ${other.id}`).toBe(false)
+      }
+    }
+  })
+
   const sizes = {
     terminal: { width: 172, height: 64 },
     input: { width: 190, height: 76 },
@@ -182,9 +223,9 @@ describe("AST와 순서도 그래프 변환", () => {
     }
   })
 
-  it("새 조건과 반복 판단의 기본 예 방향을 모두 왼쪽으로 통일한다", () => {
-    expect(yesSideOf({ kind: "decision", label: "조건", controlKind: "if" })).toBe("left")
-    expect(yesSideOf({ kind: "decision", label: "반복 조건", controlKind: "loop" })).toBe("left")
+  it("조건과 반복 모두 예는 왼쪽, 아니오는 오른쪽에서 나간다", () => {
+    expect(branchSide("yes")).toBe("left")
+    expect(branchSide("no")).toBe("right")
   })
 
   it("아니오 본문이 없는 조건도 예는 왼쪽, 아니오는 오른쪽에서 출발한다", () => {
@@ -240,6 +281,64 @@ describe("AST와 순서도 그래프 변환", () => {
       },
       controlKind: "loop",
     },
+    /*
+     * 아래 세 모양은 dagre의 `constraints`가 조용히 무시되는 자리입니다.
+     * 배치가 끝난 뒤 좌우를 바로잡지 않으면 '예' 본문이 오른쪽에 놓여,
+     * 왼쪽으로 나간 '예' 화살표가 되돌아오며 '아니오'와 교차합니다.
+     */
+    {
+      title: "예 본문이 더 긴 조건 분기",
+      program: {
+        body: [
+          {
+            type: "if" as const,
+            condition: "물이 끓으면",
+            thenBody: [
+              { type: "action" as const, text: "면을 넣는다." },
+              { type: "action" as const, text: "젓는다." },
+              { type: "action" as const, text: "불을 줄인다." },
+            ],
+            elseBody: [{ type: "action" as const, text: "더 끓인다." }],
+          },
+        ],
+      },
+      controlKind: "if",
+    },
+    {
+      title: "아니면 본문이 없는 조건 분기",
+      program: {
+        body: [
+          {
+            type: "if" as const,
+            condition: "물이 끓으면",
+            thenBody: [{ type: "action" as const, text: "불을 끈다." }],
+            elseBody: [],
+          },
+          { type: "action" as const, text: "그릇에 담는다." },
+        ],
+      },
+      controlKind: "if",
+    },
+    {
+      title: "반복 안의 조건 분기",
+      program: {
+        body: [
+          {
+            type: "loop" as const,
+            condition: "재료가 남아 있을 때까지",
+            body: [
+              {
+                type: "if" as const,
+                condition: "재료가 크면",
+                thenBody: [{ type: "action" as const, text: "자른다." }],
+                elseBody: [],
+              },
+            ],
+          },
+        ],
+      },
+      controlKind: "if",
+    },
   ])("$title의 예 본문은 왼쪽, 아니오 본문은 오른쪽에 배치한다", ({ program, controlKind }) => {
     const graph = astToFlow(program)
     const decision = graph.nodes.find(
@@ -260,6 +359,185 @@ describe("AST와 순서도 그래프 변환", () => {
     const centerX = (node: (typeof graph.nodes)[number]) =>
       node.position.x + sizes[node.data.kind].width / 2
     expect(centerX(yesTarget)).toBeLessThan(centerX(noTarget))
+  })
+
+  /*
+   * 갈래 전체의 평균 위치로 뒤집힘을 판단하면 틀리는 두 모양입니다. 첫 기호는
+   * 제자리인데 뒤쪽 기호가 반대편이라 뒤집어 버리거나(연달은 반복), 첫 기호가
+   * 반대편인데 안쪽 반복 본문이 평균을 끌어당겨 지나칩니다(조건 안의 조건).
+   */
+  it.each([
+    {
+      title: "연달은 반복",
+      program: {
+        body: [
+          {
+            type: "loop" as const,
+            condition: "첫째",
+            body: ["a", "b", "c"].map(text => ({ type: "action" as const, text })),
+          },
+          {
+            type: "loop" as const,
+            condition: "둘째",
+            body: ["d", "e", "f"].map(text => ({ type: "action" as const, text })),
+          },
+          {
+            type: "loop" as const,
+            condition: "셋째",
+            body: [{ type: "action" as const, text: "g" }],
+          },
+          {
+            type: "loop" as const,
+            condition: "넷째",
+            body: ["h", "i"].map(text => ({ type: "action" as const, text })),
+          },
+        ],
+      },
+    },
+    {
+      title: "조건의 예 갈래 안에 조건과 반복이 든 경우",
+      program: {
+        body: [
+          { type: "action" as const, text: "준비한다." },
+          {
+            type: "if" as const,
+            condition: "바깥 조건",
+            thenBody: [
+              {
+                type: "if" as const,
+                condition: "안쪽 조건",
+                thenBody: [
+                  { type: "input" as const, variable: "수" },
+                  { type: "action" as const, text: "기록한다." },
+                ],
+                elseBody: [
+                  {
+                    type: "loop" as const,
+                    condition: "첫 반복",
+                    body: [
+                      { type: "assign" as const, target: "합", expr: "1" },
+                      { type: "action" as const, text: "더한다." },
+                    ],
+                  },
+                  {
+                    type: "loop" as const,
+                    condition: "둘째 반복",
+                    body: [{ type: "action" as const, text: "센다." }],
+                  },
+                ],
+              },
+            ],
+            elseBody: [{ type: "action" as const, text: "건너뛴다." }],
+          },
+        ],
+      },
+    },
+  ])(
+    "$title에서도 모든 판단의 예 첫 기호는 마름모 왼쪽, 아니오 첫 기호는 그보다 오른쪽이다",
+    ({ program }) => {
+      const graph = astToFlow(program)
+      const nodesById = new Map(graph.nodes.map(node => [node.id, node]))
+      const centerX = (id: string) => {
+        const node = nodesById.get(id)
+        if (!node) throw new Error(`${id} 기호가 있어야 합니다`)
+        return node.position.x + NODE_SIZES[node.data.kind].width / 2
+      }
+
+      const decisions = graph.nodes.filter(node => node.data.kind === "decision")
+      expect(decisions.length).toBeGreaterThan(3)
+      for (const decision of decisions) {
+        const yes = graph.edges.find(
+          edge => edge.source === decision.id && edge.sourceHandle === "yes",
+        )
+        const no = graph.edges.find(
+          edge => edge.source === decision.id && edge.sourceHandle === "no",
+        )
+        if (!yes || !no) throw new Error(`${decision.data.label}에 예/아니오가 있어야 합니다`)
+
+        // 예 첫 기호가 마름모보다 오른쪽이면 왼쪽 꼭짓점에서 나간 선이 되돌아옵니다.
+        expect(centerX(yes.target), decision.data.label).toBeLessThanOrEqual(centerX(decision.id))
+        expect(centerX(yes.target), decision.data.label).toBeLessThan(centerX(no.target))
+      }
+    },
+  )
+
+  it("중첩 반복의 오른쪽 복귀선이 같은 높이의 끝 기호를 지나지 않는다", () => {
+    const graph = astToFlow({
+      body: [
+        {
+          type: "loop",
+          condition: "바깥 반복",
+          body: [
+            { type: "action", text: "바깥 처리" },
+            {
+              type: "loop",
+              condition: "안쪽 반복",
+              body: [{ type: "action", text: "안쪽 처리" }],
+            },
+          ],
+        },
+        { type: "output", expr: "결과" },
+      ],
+    })
+    const inner = graph.nodes.find(node => node.data.label === "안쪽 반복")
+    if (!inner) throw new Error("안쪽 반복 판단이 있어야 합니다")
+    const back = graph.edges.find(edge => edge.source === inner.id && edge.sourceHandle === "no")
+    const route = back?.data?.routePoints
+    if (!route) throw new Error("아니오 복귀선에 경로가 있어야 합니다")
+
+    // 경로의 어느 선분도 출발·도착이 아닌 기호 상자를 지나면 안 됩니다.
+    for (const node of graph.nodes) {
+      if (node.id === back?.source || node.id === back?.target) continue
+      const size = NODE_SIZES[node.data.kind]
+      const hit = route.slice(1).some((point, index) => {
+        const previous = route[index]
+        return (
+          Math.max(previous.x, point.x) > node.position.x &&
+          Math.min(previous.x, point.x) < node.position.x + size.width &&
+          Math.max(previous.y, point.y) > node.position.y &&
+          Math.min(previous.y, point.y) < node.position.y + size.height
+        )
+      })
+      expect(hit, `${node.data.label} 기호를 지납니다`).toBe(false)
+    }
+  })
+
+  it("반복 본문이 또 다른 반복으로 끝나도 안쪽 판단의 아니오가 남는다", () => {
+    const program: Program = {
+      body: [
+        {
+          type: "loop",
+          condition: "바깥이 참일 때까지",
+          body: [
+            {
+              type: "loop",
+              condition: "안쪽이 참일 때까지",
+              body: [{ type: "action", text: "한 걸음 간다." }],
+            },
+          ],
+        },
+      ],
+    }
+    const graph = astToFlow(program)
+    const inner = graph.nodes.find(
+      node => node.data.kind === "decision" && node.data.label === "안쪽이 참일 때까지",
+    )
+    if (!inner) throw new Error("안쪽 반복 판단이 있어야 합니다")
+
+    // 안쪽 반복의 '아니오'는 바깥 반복으로 되돌아가는 복귀선이지만,
+    // 아니오 꼭짓점에서 나가고 라벨도 그대로여야 합니다.
+    const exit = graph.edges.find(edge => edge.source === inner.id && edge.sourceHandle === "no")
+    expect(exit?.label).toBe("아니오")
+    expect(exit?.data?.branch).toBe("loop-back")
+
+    // 판단 기호에는 아래쪽 연결점이 없으므로 갈래 화살표만 나가야 합니다.
+    const handles = graph.edges
+      .filter(edge => edge.source === inner.id)
+      .map(edge => edge.sourceHandle)
+    expect(handles.sort()).toEqual(["no", "yes"])
+
+    // 그래서 의사코드로도 그대로 되돌아옵니다.
+    expect(flowToAst(graph.nodes, graph.edges)).toEqual(program)
   })
 
   it("반복 복귀선은 왼쪽 통로를 사용해 오른쪽 아니오 진행선과 교차하지 않는다", () => {

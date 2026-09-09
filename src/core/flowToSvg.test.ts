@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { examples } from "../examples"
-import { astToFlow, NODE_SIZES } from "./astToFlow"
+import { astToFlow } from "./astToFlow"
+import { NODE_SIZES } from "./nodeGeometry"
 import { EXPORT_MARGIN, flowToSvg } from "./flowToSvg"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./flowTypes"
 
@@ -115,5 +116,36 @@ describe("순서도 → PNG 저장용 SVG", () => {
 
   it("기호가 하나도 없으면 안내 메시지를 던진다", () => {
     expect(() => flowToSvg([], [] as AlgorithmFlowEdge[])).toThrow("저장할 기호가 없어요")
+  })
+
+  it("반복 본문 끝의 아니오 갈래도 라벨과 꼭짓점을 화면과 똑같이 그린다", () => {
+    const graph = astToFlow({
+      body: [
+        {
+          type: "loop",
+          condition: "바깥이 참일 때까지",
+          body: [
+            {
+              type: "loop",
+              condition: "안쪽이 참일 때까지",
+              body: [{ type: "action", text: "한 걸음 간다." }],
+            },
+          ],
+        },
+      ],
+    })
+    const inner = graph.nodes.find(
+      node => node.data.kind === "decision" && node.data.label === "안쪽이 참일 때까지",
+    )
+    if (!inner) throw new Error("안쪽 반복 판단이 있어야 합니다")
+
+    const { markup } = flowToSvg(graph.nodes, graph.edges)
+
+    // 두 반복 모두 아니오 라벨이 남습니다.
+    expect(markup.match(/>아니오</g)?.length).toBe(2)
+    // 아니오는 마름모 오른쪽 꼭짓점에서 나갑니다(화면과 같은 자리).
+    const rightVertex = inner.position.x + NODE_SIZES.decision.width
+    const exit = graph.edges.find(edge => edge.source === inner.id && edge.sourceHandle === "no")
+    expect(exit?.data?.routePoints?.[0]?.x).toBe(rightVertex)
   })
 })
