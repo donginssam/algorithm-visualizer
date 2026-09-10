@@ -258,6 +258,87 @@ describe("판단 기호 종류 바꾸기", () => {
     )
   })
 
+  /*
+   * 팔레트에서 놓은 판단 기호에는 아직 잇지 않은 짝 합류 기호(`<판단 id>-junction`)가
+   * 딸려 있습니다. 학생이 잇기 전에 종류를 바꾸는 경우입니다.
+   */
+  describe("아직 잇지 않은 짝 합류 기호", () => {
+    /** 반복 모양으로 이어 둔 팔레트 판단과, 아직 잇지 않은 짝 합류 기호. */
+    function loopWithDanglingJunction(controlKind: "if" | "loop") {
+      const { graph, decisionId } = graphOf(loopProgram)
+      const dangling: FlowGraph["nodes"][number] = {
+        id: `${decisionId}-junction`,
+        type: "junction",
+        position: { x: 500, y: 500 },
+        data: { kind: "junction", label: "합류" },
+      }
+      return {
+        decisionId,
+        graph: {
+          nodes: graph.nodes.map(node =>
+            node.id === decisionId ? { ...node, data: { ...node.data, controlKind } } : node,
+          ),
+          edges: graph.edges,
+        } as FlowGraph,
+        dangling,
+      }
+    }
+
+    it("반복으로 바꾸면 잇지 않은 합류 기호를 지운다", () => {
+      const { graph, decisionId, dangling } = loopWithDanglingJunction("if")
+      const next = changeDecisionKind(
+        { nodes: [...graph.nodes, dangling], edges: graph.edges },
+        decisionId,
+        "loop",
+      )
+
+      expect(next.nodes.some(node => node.id === dangling.id)).toBe(false)
+      expect(pseudocode(next)).toBe(
+        [
+          "시작",
+          "  수 ← 1",
+          "  [수가 작을 때까지 반복]",
+          "    수를 늘린다.",
+          "  출력: 결과",
+          "끝",
+        ].join("\n"),
+      )
+    })
+
+    it("조건 분기로 바꾸면 잇지 않은 합류 기호를 그대로 써서 잇는다", () => {
+      const { graph, decisionId, dangling } = loopWithDanglingJunction("loop")
+      const next = changeDecisionKind(
+        { nodes: [...graph.nodes, dangling], edges: graph.edges },
+        decisionId,
+        "if",
+      )
+
+      // 새 합류 기호를 만들지 않고 있던 것을 제자리에서 씁니다.
+      const junctions = next.nodes.filter(node => node.data.kind === "junction")
+      expect(junctions).toHaveLength(1)
+      expect(junctions[0].id).toBe(dangling.id)
+      expect(junctions[0].position).toEqual(dangling.position)
+      expect(next.edges.filter(edge => edge.target === dangling.id)).toHaveLength(2)
+      expect(next.edges.filter(edge => edge.source === dangling.id)).toHaveLength(1)
+      expect(pseudocode(next)).toBe(
+        [
+          "시작",
+          "  수 ← 1",
+          "  [만약 수가 작을 때까지]",
+          "    수를 늘린다.",
+          "  출력: 결과",
+          "끝",
+        ].join("\n"),
+      )
+    })
+
+    it("이미 이어진 합류점이 있으면 조건 분기로 바꿔도 손대지 않는다", () => {
+      const { graph, decisionId } = graphOf(ifProgram)
+      const asIf = changeDecisionKind(graph, decisionId, "if")
+      expect(asIf).toEqual(graph)
+    })
+  })
+
   it("아직 만드는 중이라 합류점이 없으면 종류만 바꾼다", () => {
     const graph: FlowGraph = {
       nodes: [

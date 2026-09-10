@@ -35,6 +35,24 @@ export function changeDecisionKind(
 
 const junctionIdOf = (decisionId: string) => `${decisionId}-junction`
 
+/**
+ * 판단과 짝으로 놓였지만 아직 어디에도 이어지지 않은 합류 기호.
+ *
+ * 팔레트에서 판단 기호를 놓으면 조건 분기용 합류 기호가 함께 생깁니다. 학생이 그것을
+ * 잇기 전에 판단을 반복으로 바꾸면 쓸모없는 기호가 남아 "연결이 끊겨 있어요"가 뜨고,
+ * 다시 조건으로 바꾸면 같은 id의 합류 기호가 이미 있다고 보고 아무것도 하지 않게
+ * 됩니다. 두 방향 모두 이 기호를 알아보고 처리합니다.
+ */
+function danglingJunction(graph: FlowGraph, decisionId: string): AlgorithmFlowNode | undefined {
+  const junctionId = junctionIdOf(decisionId)
+  const junction = graph.nodes.find(node => node.id === junctionId)
+  if (!junction || junction.data.kind !== "junction") return undefined
+  const connected = graph.edges.some(
+    edge => edge.source === junctionId || edge.target === junctionId,
+  )
+  return connected ? undefined : junction
+}
+
 /** 복귀선을 제외한 두 갈래의 첫 공통 합류점을 연결 구조로 찾습니다. */
 function findJunction(graph: FlowGraph, decisionId: string): string | undefined {
   const forward = graph.edges.filter(edge => edge.data?.branch !== "loop-back")
@@ -123,8 +141,15 @@ function reachable(
  * 아니면 본문이 있었다면 그대로 아니오 흐름 안에 남습니다.
  */
 function toLoop(graph: FlowGraph, decisionId: string): FlowGraph {
-  const junctionId = findJunction(graph, decisionId)
-  if (!junctionId) return graph
+  // 아직 잇지 않은 짝 합류 기호는 반복에서 쓸 데가 없으므로 지웁니다.
+  const dangling = danglingJunction(graph, decisionId)
+  const withoutDangling = dangling
+    ? { ...graph, nodes: graph.nodes.filter(node => node.id !== dangling.id) }
+    : graph
+
+  const junctionId = findJunction(withoutDangling, decisionId)
+  if (!junctionId) return withoutDangling
+  graph = withoutDangling
 
   // 복귀선 통로는 합류점을 지운 뒤의 순서도 너비로 잡습니다.
   const nodes = graph.nodes.filter(node => node.id !== junctionId)
@@ -167,7 +192,10 @@ function toLoop(graph: FlowGraph, decisionId: string): FlowGraph {
  */
 function toIf(graph: FlowGraph, decisionId: string): FlowGraph {
   const junctionId = junctionIdOf(decisionId)
-  if (graph.nodes.some(node => node.id === junctionId)) return graph
+  // 이미 이어진 합류점이 있으면 조건 분기 모양이 갖춰진 것이므로 손대지 않습니다.
+  // 아직 잇지 않은 짝 합류 기호는 새로 만드는 대신 그대로 써서 제자리에 잇습니다.
+  const dangling = danglingJunction(graph, decisionId)
+  if (!dangling && graph.nodes.some(node => node.id === junctionId)) return graph
 
   const loopBacks = graph.edges.filter(
     edge => edge.target === decisionId && edge.data?.branch === "loop-back",
@@ -190,7 +218,7 @@ function toIf(graph: FlowGraph, decisionId: string): FlowGraph {
   const decisionBottom = decision ? decision.position.y + sizeOf(decision).height : 0
   const junctionSize = NODE_SIZES.junction
 
-  const junction: AlgorithmFlowNode = {
+  const junction: AlgorithmFlowNode = dangling ?? {
     id: junctionId,
     type: "junction",
     position: {
@@ -200,7 +228,7 @@ function toIf(graph: FlowGraph, decisionId: string): FlowGraph {
     data: { kind: "junction", label: "합류" },
   }
 
-  const nodes = [...graph.nodes, junction]
+  const nodes = dangling ? graph.nodes : [...graph.nodes, junction]
   const after = noEdge?.target
   const edges = graph.edges.map(edge => {
     // 본문 끝은 이제 되돌아가지 않고 합류점에서 만납니다.
