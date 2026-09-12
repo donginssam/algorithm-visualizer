@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { FlowCanvasHandle } from "./components/FlowCanvas"
+import { ModalDialog } from "./components/ModalDialog"
 import type { PaletteItemKind } from "./components/Palette"
 import { UpdatePrompt } from "./components/UpdatePrompt"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./core/flowTypes"
@@ -284,36 +285,25 @@ export default function App() {
       </Suspense>
 
       {confirmingReset && (
-        <div
-          className="modal-backdrop"
-          role="presentation"
-          onPointerDown={() => setConfirmingReset(false)}
-        >
-          <div
-            className="node-editor-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reset-dialog-title"
-            onPointerDown={event => event.stopPropagation()}
-            onKeyDown={event => {
-              if (event.key === "Escape") setConfirmingReset(false)
-            }}
-          >
-            <h3 id="reset-dialog-title">처음부터 다시 시작할까요?</h3>
-            <p className="dialog-text">
-              지금 만든 순서도와 의사코드가 모두 지워지고, 저장해 둔 내용도 함께 사라집니다. 되돌릴
-              수 없어요.
-            </p>
-            <div className="dialog-actions">
+        <ModalDialog
+          title="처음부터 다시 시작할까요?"
+          onClose={() => setConfirmingReset(false)}
+          actions={
+            <>
               <button type="button" autoFocus onClick={() => setConfirmingReset(false)}>
                 취소
               </button>
               <button type="button" className="danger" onClick={handleReset}>
                 초기화
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="dialog-text">
+            지금 만든 순서도와 의사코드가 모두 지워지고, 저장해 둔 내용도 함께 사라집니다. 되돌릴 수
+            없어요.
+          </p>
+        </ModalDialog>
       )}
 
       <UpdatePrompt onBeforeRefresh={saveNow} />

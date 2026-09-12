@@ -24,33 +24,33 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react"
-import {
-  INPUT_LABEL,
-  INPUT_PREFIX,
-  OUTPUT_LABEL,
-  OUTPUT_PREFIX,
-  PSEUDOCODE_SYMBOLS,
-} from "../constants/pseudocode"
+import { INPUT_PREFIX } from "../constants/pseudocode"
 import type { Program } from "../core/ast"
 import { astToFlow } from "../core/astToFlow"
 import { autoLayoutGraph } from "../core/autoLayout"
 import { edgeAppearance, loopBackRoute, routeEdges } from "../core/flowEdges"
 import { changeDecisionKind } from "../core/decisionKind"
+import { removeNodes } from "../core/removeNodes"
 import { flowToAst, FlowValidationError } from "../core/flowToAst"
-import { flowToSvg, graphBounds } from "../core/flowToSvg"
+import { exportGraphAsPng } from "../core/exportPng"
+import { graphBounds } from "../core/flowToSvg"
 import { cloneFlowGraph, GraphHistory } from "../core/graphHistory"
+import { createJunctionNode, isLoopBackConnection, junctionPosition } from "../core/graphTopology"
 import type {
   AlgorithmFlowEdge,
   AlgorithmFlowNode,
-  ControlKind,
   FlowGraph,
-  FlowNodeKind,
   TerminalRole,
 } from "../core/flowTypes"
-import { normalizeSymbols } from "../core/parser"
 import type { ProgramSource } from "../store/useAppStore"
 import type { PaletteItemKind } from "./Palette"
 import { EdgeActionContext, FlowEdge } from "./FlowEdges"
+import {
+  editingLabel,
+  editingStateOf,
+  NodeEditorDialog,
+  type EditingState,
+} from "./NodeEditorDialog"
 import {
   DecisionNode,
   IoNode,
@@ -103,26 +103,7 @@ interface FlowCanvasProps {
   onGraphChange: (nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]) => void
 }
 
-interface EditingState {
-  id: string
-  value: string
-  kind: FlowNodeKind
-  controlKind?: ControlKind
-  originalControlKind?: ControlKind
-  terminalRole?: TerminalRole
-}
-
 let userNodeSequence = 0
-
-/** PNG 파일명에 붙일 `YYYYMMDD-HHmm` 시각 문자열. */
-function exportStamp(): string {
-  const now = new Date()
-  const pad = (value: number) => String(value).padStart(2, "0")
-  return (
-    `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}` +
-    `-${pad(now.getHours())}${pad(now.getMinutes())}`
-  )
-}
 
 function userNode(
   kind: PaletteItemKind,
@@ -156,60 +137,22 @@ function userNode(
           data: { kind: "process", label: "처리할 내용" },
         },
       ]
-    case "decision":
-      return [
-        {
-          id,
-          type: "decision",
-          position,
-          data: { kind: "decision", label: "판단 조건", controlKind: "if" },
-        },
-        {
-          id: `${id}-junction`,
-          type: "junction",
-          position: { x: position.x + 101, y: position.y + 210 },
-          data: { kind: "junction", label: "합류" },
-        },
-      ]
+    case "decision": {
+      // 조건 분기는 두 갈래가 다시 만나는 합류 기호와 짝입니다. 함께 놓아 주지 않으면
+      // 학생이 갈래를 잇는 순간 "연결이 끊겨 있어요"부터 보게 됩니다.
+      const decision: AlgorithmFlowNode = {
+        id,
+        type: "decision",
+        position,
+        data: { kind: "decision", label: "판단 조건", controlKind: "if" },
+      }
+      return [decision, createJunctionNode(id, junctionPosition(decision))]
+    }
   }
 }
 
 function graphErrorMessage(error: unknown): string {
   return error instanceof FlowValidationError ? error.message : "순서도의 연결을 확인해 주세요."
-}
-
-function stripIoDecoration(value: string): string {
-  return value
-    .replace(new RegExp(`^(?:${INPUT_LABEL}|${OUTPUT_LABEL})\\s*:\\s*`), "")
-    .replace(new RegExp(`\\s+(?:${INPUT_LABEL}|${OUTPUT_LABEL})$`), "")
-    .trim()
-}
-
-function editableNodeValue(node: AlgorithmFlowNode): string {
-  return node.data.kind === "input" || node.data.kind === "output"
-    ? stripIoDecoration(node.data.label)
-    : node.data.label
-}
-
-function editingLabel(editing: EditingState): string {
-  const value = normalizeSymbols(editing.value).trim()
-
-  switch (editing.kind) {
-    case "terminal":
-      return editing.terminalRole === "end" ? "끝" : "시작"
-    case "input":
-      return `${INPUT_PREFIX}${stripIoDecoration(value)}`
-    case "output":
-      return `${OUTPUT_PREFIX}${stripIoDecoration(value)}`
-    case "decision":
-      return value
-        .replace(/^\[만약\s+/, "")
-        .replace(/\]$/, "")
-        .replace(/\s+반복$/, "")
-        .trim()
-    default:
-      return value
-  }
 }
 
 function isTextEditingTarget(target: EventTarget | null): boolean {
@@ -454,35 +397,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     }
   }, [canvasSize, revision, fitRequest, getViewport, setViewport])
 
-  const exportPng = useCallback(async () => {
-    const { markup, width, height } = flowToSvg(nodesRef.current, edgesRef.current)
-
-    // 화면 배율과 무관하게 항상 2배 해상도로 저장합니다(과제 제출용).
-    const scale = 2
-    const image = new Image()
-    image.width = width
-    image.height = height
-    const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`
-
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve()
-      image.onerror = () => reject(new Error("순서도를 이미지로 바꾸지 못했어요."))
-      image.src = svgUrl
-    })
-
-    const canvas = document.createElement("canvas")
-    canvas.width = width * scale
-    canvas.height = height * scale
-    const context = canvas.getContext("2d")
-    if (!context) throw new Error("이미지를 만들 수 없는 브라우저예요.")
-    context.scale(scale, scale)
-    context.drawImage(image, 0, 0, width, height)
-
-    const link = document.createElement("a")
-    link.download = `순서도-${exportStamp()}.png`
-    link.href = canvas.toDataURL("image/png")
-    link.click()
-  }, [])
+  const exportPng = useCallback(() => exportGraphAsPng(nodesRef.current, edgesRef.current), [])
 
   useImperativeHandle(ref, () => ({ addNodeAtScreen: addAtScreen, exportPng }), [
     addAtScreen,
@@ -500,37 +415,56 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       onGraphMutation()
     }
 
-    const next = applyNodeChanges(changes, nodesRef.current)
-    if (changes.some(change => change.type === "remove")) {
-      commitGraph(next, edgesRef.current)
-    } else {
-      replaceNodes(next)
+    const removedIds = changes.flatMap(change => (change.type === "remove" ? [change.id] : []))
+    if (removedIds.length > 0) {
+      // 판단 기호를 지우면 짝 합류 기호도 함께 지웁니다(removeNodes). 지운 뒤 남은
+      // 변경(선택 등)만 이어서 적용합니다.
+      const removed = removeNodes({ nodes: nodesRef.current, edges: edgesRef.current }, removedIds)
+      const next = applyNodeChanges(
+        changes.filter(change => change.type !== "remove"),
+        removed.nodes,
+      )
+      commitGraph(next, removed.edges)
+      return
+    }
 
-      const positionFinished =
-        positionChanges.length > 0 && positionChanges.every(change => change.dragging !== true)
-      if (positionFinished && positionStartRef.current) {
-        const before = positionStartRef.current
-        const after = { nodes: next, edges: edgesRef.current }
-        positionStartRef.current = null
-        if (nodePositionsChanged(before, after)) historyRef.current.record(before)
-      }
+    const next = applyNodeChanges(changes, nodesRef.current)
+    replaceNodes(next)
+
+    const positionFinished =
+      positionChanges.length > 0 && positionChanges.every(change => change.dragging !== true)
+    if (positionFinished && positionStartRef.current) {
+      const before = positionStartRef.current
+      const after = { nodes: next, edges: edgesRef.current }
+      positionStartRef.current = null
+      if (nodePositionsChanged(before, after)) historyRef.current.record(before)
     }
   }
 
   const handleEdgesChange = (changes: EdgeChange<AlgorithmFlowEdge>[]) => {
-    const next = applyEdgeChanges(changes, edgesRef.current)
-    if (changes.some(change => change.type === "remove")) {
-      commitGraph(nodesRef.current, next)
-    } else {
-      replaceEdges(next)
+    const removedIds = changes.flatMap(change => (change.type === "remove" ? [change.id] : []))
+    if (removedIds.length > 0) {
+      const removed = removeNodes(
+        { nodes: nodesRef.current, edges: edgesRef.current },
+        [],
+        removedIds,
+      )
+      const next = applyEdgeChanges(
+        changes.filter(change => change.type !== "remove"),
+        removed.edges,
+      )
+      commitGraph(removed.nodes, next)
+      return
     }
+    replaceEdges(applyEdgeChanges(changes, edgesRef.current))
   }
 
   const handleConnect = (connection: Connection) => {
-    const targetNode = nodesRef.current.find(node => node.id === connection.target)
-    const isLoopBack =
-      targetNode?.data.controlKind === "loop" &&
-      edgesRef.current.some(edge => edge.target === connection.target)
+    const isLoopBack = isLoopBackConnection(
+      { nodes: nodesRef.current, edges: edgesRef.current },
+      connection.source,
+      connection.target,
+    )
     const branch = isLoopBack
       ? "loop-back"
       : connection.sourceHandle === "yes" || connection.sourceHandle === "no"
@@ -558,14 +492,13 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   }
 
   const removeNode = (id: string) => {
-    const nextNodes = nodesRef.current.filter(node => node.id !== id)
-    const nextEdges = edgesRef.current.filter(edge => edge.source !== id && edge.target !== id)
-    commitGraph(nextNodes, nextEdges)
+    const next = removeNodes({ nodes: nodesRef.current, edges: edgesRef.current }, [id])
+    commitGraph(next.nodes, next.edges)
   }
 
   const removeEdge = (id: string) => {
-    const nextEdges = edgesRef.current.filter(edge => edge.id !== id)
-    commitGraph(nodesRef.current, nextEdges)
+    const next = removeNodes({ nodes: nodesRef.current, edges: edgesRef.current }, [], [id])
+    commitGraph(next.nodes, next.edges)
   }
 
   const restoreFromHistory = useCallback(
@@ -594,14 +527,12 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     )
     if (selectedNodeIds.size === 0 && selectedEdgeIds.size === 0) return false
 
-    const nextNodes = nodesRef.current.filter(node => !selectedNodeIds.has(node.id))
-    const nextEdges = edgesRef.current.filter(
-      edge =>
-        !selectedEdgeIds.has(edge.id) &&
-        !selectedNodeIds.has(edge.source) &&
-        !selectedNodeIds.has(edge.target),
+    const next = removeNodes(
+      { nodes: nodesRef.current, edges: edgesRef.current },
+      selectedNodeIds,
+      selectedEdgeIds,
     )
-    commitGraph(nextNodes, nextEdges)
+    commitGraph(next.nodes, next.edges)
     return true
   }, [commitGraph])
 
@@ -642,15 +573,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
 
   const openEditor = (id: string) => {
     const node = nodesRef.current.find(candidate => candidate.id === id)
-    if (!node) return
-    setEditing({
-      id,
-      value: editableNodeValue(node),
-      kind: node.data.kind,
-      controlKind: node.data.controlKind,
-      originalControlKind: node.data.controlKind,
-      terminalRole: node.data.terminalRole,
-    })
+    if (node) setEditing(editingStateOf(node))
   }
 
   const saveEditing = () => {
@@ -781,112 +704,12 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       )}
 
       {editing && (
-        <div className="modal-backdrop" role="presentation" onPointerDown={() => setEditing(null)}>
-          <div
-            className="node-editor-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="node-editor-title"
-            onPointerDown={event => event.stopPropagation()}
-          >
-            <h3 id="node-editor-title">기호 내용 편집</h3>
-            {editing.kind === "terminal" && (
-              <label>
-                종류
-                <select
-                  value={editing.terminalRole ?? "start"}
-                  onChange={event =>
-                    setEditing(current =>
-                      current
-                        ? { ...current, terminalRole: event.target.value as TerminalRole }
-                        : current,
-                    )
-                  }
-                >
-                  <option value="start">시작</option>
-                  <option value="end">끝</option>
-                </select>
-              </label>
-            )}
-            {(editing.kind === "input" || editing.kind === "output") && (
-              <label>
-                종류
-                <select
-                  value={editing.kind}
-                  onChange={event =>
-                    setEditing(current =>
-                      current
-                        ? { ...current, kind: event.target.value as "input" | "output" }
-                        : current,
-                    )
-                  }
-                >
-                  <option value="input">입력</option>
-                  <option value="output">출력</option>
-                </select>
-              </label>
-            )}
-            {editing.kind === "decision" && (
-              <label>
-                종류
-                <select
-                  value={editing.controlKind ?? "if"}
-                  onChange={event =>
-                    setEditing(current =>
-                      current
-                        ? { ...current, controlKind: event.target.value as ControlKind }
-                        : current,
-                    )
-                  }
-                >
-                  <option value="if">조건 분기</option>
-                  <option value="loop">반복</option>
-                </select>
-              </label>
-            )}
-            {editing.kind !== "terminal" && (
-              <label>
-                {editing.kind === "decision" ? "조건식" : "기호 안의 문장"}
-                <input
-                  autoFocus
-                  value={editing.value}
-                  onChange={event =>
-                    setEditing(current =>
-                      current ? { ...current, value: event.target.value } : current,
-                    )
-                  }
-                  onKeyDown={event => {
-                    if (event.key === "Enter") saveEditing()
-                    if (event.key === "Escape") setEditing(null)
-                  }}
-                />
-              </label>
-            )}
-            <div className="dialog-symbols" aria-label="기호 입력">
-              {PSEUDOCODE_SYMBOLS.map(symbol => (
-                <button
-                  key={symbol}
-                  type="button"
-                  onClick={() =>
-                    setEditing(current =>
-                      current ? { ...current, value: current.value + symbol } : current,
-                    )
-                  }
-                >
-                  {symbol}
-                </button>
-              ))}
-            </div>
-            <div className="dialog-actions">
-              <button type="button" onClick={() => setEditing(null)}>
-                취소
-              </button>
-              <button type="button" className="primary" onClick={saveEditing}>
-                저장
-              </button>
-            </div>
-          </div>
-        </div>
+        <NodeEditorDialog
+          editing={editing}
+          onEditingChange={setEditing}
+          onSave={saveEditing}
+          onClose={() => setEditing(null)}
+        />
       )}
     </div>
   )

@@ -2,9 +2,15 @@ import { create } from "zustand"
 import type { Program } from "../core/ast"
 import { astToText } from "../core/astToText"
 import { parsePseudocode, PseudocodeParseError } from "../core/parser"
-import { loadWorkspace, type Workspace } from "../core/workspaceStore"
+import { loadWorkspace, type Workspace, type WorkspaceSource } from "../core/workspaceStore"
 
-export type ProgramSource = "example" | "text" | "flow"
+/**
+ * 프로그램이 어디서 왔는지.
+ *
+ * 저장 형식과 같은 값이라 core의 정의를 그대로 씁니다. 둘을 따로 적어 두면 한쪽에만
+ * 값을 더했을 때 저장한 작업을 되살리지 못합니다(core는 store를 참조하지 않습니다).
+ */
+export type ProgramSource = WorkspaceSource
 
 /**
  * 처음 화면에 올라오는 프로그램.

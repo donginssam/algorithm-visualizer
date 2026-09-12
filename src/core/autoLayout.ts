@@ -1,5 +1,6 @@
 import { layoutFlowGraph, type BranchGroup } from "./astToFlow"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph } from "./flowTypes"
+import { edgesBySource, reachableFrom } from "./graphTopology"
 
 /**
  * 화면에서 직접 만든 순서도를 자동 배치합니다.
@@ -16,25 +17,6 @@ export function autoLayoutGraph(graph: FlowGraph): FlowGraph {
   return layoutFlowGraph(graph, deriveBranchGroups(graph.nodes, graph.edges))
 }
 
-/** 판단 기호에서 출발해 되돌아오기 전까지 닿는 기호들. */
-function reachableFrom(
-  startId: string,
-  stopId: string,
-  outgoing: Map<string, AlgorithmFlowEdge[]>,
-): Set<string> {
-  const seen = new Set<string>()
-  const queue = [startId]
-
-  while (queue.length > 0) {
-    const id = queue.shift()!
-    if (id === stopId || seen.has(id)) continue
-    seen.add(id)
-    for (const edge of outgoing.get(id) ?? []) queue.push(edge.target)
-  }
-
-  return seen
-}
-
 /**
  * 화살표를 따라가 판단마다 '예'와 '아니오' 갈래에 속한 기호를 모읍니다.
  *
@@ -49,28 +31,25 @@ export function deriveBranchGroups(
   nodes: AlgorithmFlowNode[],
   edges: AlgorithmFlowEdge[],
 ): BranchGroup[] {
-  const outgoing = new Map<string, AlgorithmFlowEdge[]>()
-  for (const edge of edges) {
-    const list = outgoing.get(edge.source) ?? []
-    list.push(edge)
-    outgoing.set(edge.source, list)
-  }
+  const outgoing = edgesBySource(edges)
 
   return nodes.flatMap(node => {
     if (node.data.kind !== "decision") return []
 
+    // 갈래를 따라가다 판단 기호로 되돌아오면 멈춥니다(반복 본문).
+    const stopAtDecision = new Set([node.id])
     const branches = outgoing.get(node.id) ?? []
     const yesTarget = branches.find(edge => edge.sourceHandle === "yes")?.target
     if (!yesTarget) return []
 
-    const yes = reachableFrom(yesTarget, node.id, outgoing)
+    const yes = reachableFrom(yesTarget, outgoing, stopAtDecision)
     if (node.data.controlKind === "loop") {
       return [{ decisionId: node.id, yes: [...yes], no: [] }]
     }
 
     const noTarget = branches.find(edge => edge.sourceHandle === "no")?.target
     if (!noTarget) return []
-    const no = reachableFrom(noTarget, node.id, outgoing)
+    const no = reachableFrom(noTarget, outgoing, stopAtDecision)
 
     return [
       {

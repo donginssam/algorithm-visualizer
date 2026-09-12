@@ -1,4 +1,5 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
+import { SHAPE_OUTLINE_POINTS, type ShapePoint } from "../core/shapeGeometry"
 
 export type PaletteItemKind = "terminal" | "io" | "process" | "decision"
 
@@ -20,11 +21,24 @@ const items: Array<{
   { kind: "decision", label: "판단 기호", short: "판단" },
 ]
 
+/** 팔레트 그림의 사각 기준 상자. 비스듬한 변이 잘리지 않도록 테두리만큼 안쪽으로 둡니다. */
+const FIGURE_BOX = { x: 1, y: 6, width: 74, height: 30 }
+/** 마름모는 위아래 꼭짓점이 있어 상자를 세로로 더 씁니다. */
+const DIAMOND_BOX = { x: 1, y: 1, width: 74, height: 40 }
+
+/** 0~1로 정규화한 윤곽(core/shapeGeometry.ts)을 팔레트 그림 상자에 맞춰 늘립니다. */
+function fitOutline(points: readonly ShapePoint[], box: typeof FIGURE_BOX): string {
+  return points.map(([x, y]) => `${box.x + box.width * x},${box.y + box.height * y}`).join(" ")
+}
+
 /**
  * 팔레트에 보이는 기호 모양.
  *
  * 76×42 좌표계에 1:1로 그린다. `clip-path`가 아니라 SVG를 쓰는 이유는 비스듬한
  * 변에도 테두리를 남기기 위해서다.
+ *
+ * 평행사변형과 마름모의 꼭짓점은 캔버스·PNG와 같은 정의(`SHAPE_OUTLINE_POINTS`)에서
+ * 끌어온다. 팔레트 그림만 다른 기울기로 남는 일을 막기 위해서다.
  *
  * 판단 기호는 **가로로 긴 마름모**다. 육각형은 순서도 표기에서 준비(preparation)
  * 기호이므로 판단에 쓰면 안 된다.
@@ -32,15 +46,19 @@ const items: Array<{
 function PaletteFigure({ kind }: { kind: PaletteItemKind }) {
   return (
     <svg className={`palette-figure ${kind}`} viewBox="0 0 76 42" aria-hidden="true">
-      {kind === "terminal" && (
-        <rect x="1" y="6" width="74" height="30" rx="15" vectorEffect="non-scaling-stroke" />
+      {kind === "terminal" && <rect {...FIGURE_BOX} rx="15" vectorEffect="non-scaling-stroke" />}
+      {kind === "process" && <rect {...FIGURE_BOX} rx="3" vectorEffect="non-scaling-stroke" />}
+      {kind === "io" && (
+        <polygon
+          points={fitOutline(SHAPE_OUTLINE_POINTS.io, FIGURE_BOX)}
+          vectorEffect="non-scaling-stroke"
+        />
       )}
-      {kind === "process" && (
-        <rect x="1" y="6" width="74" height="30" rx="3" vectorEffect="non-scaling-stroke" />
-      )}
-      {kind === "io" && <polygon points="11,6 75,6 65,36 1,36" vectorEffect="non-scaling-stroke" />}
       {kind === "decision" && (
-        <polygon points="38,1 75,21 38,41 1,21" vectorEffect="non-scaling-stroke" />
+        <polygon
+          points={fitOutline(SHAPE_OUTLINE_POINTS.decision, DIAMOND_BOX)}
+          vectorEffect="non-scaling-stroke"
+        />
       )}
     </svg>
   )

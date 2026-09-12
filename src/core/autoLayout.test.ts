@@ -145,4 +145,32 @@ describe("순서도 자동 배치", () => {
     expect(() => autoLayoutGraph({ nodes: [decision], edges: [] })).not.toThrow()
     expect(deriveBranchGroups([decision], [])).toEqual([])
   })
+
+  /*
+   * 기호 안에 긴 글을 넣으면 도형이 표준 크기보다 커집니다(.flow-shape의 min-height).
+   * 한때 배치는 표준 크기로, 화면은 실제 크기로 그려서 늘어난 기호가 아래 기호를
+   * 덮었습니다. 화면에서 잰 크기(measured)가 있으면 그것으로 자리를 잡아야 합니다.
+   */
+  it("글이 길어 커진 기호도 아래 기호와 겹치지 않는다", () => {
+    const program: Program = {
+      body: [
+        { type: "assign", target: "합계", expr: "아주 긴 문장".repeat(12) },
+        { type: "assign", target: "수", expr: "1" },
+      ],
+    }
+    const graph = astToFlow(program)
+    const tall = graph.nodes.find(node => node.id === "statement-root-0")!
+    const measured = { ...tall, measured: { width: NODE_SIZES.process.width, height: 260 } }
+    const arranged = autoLayoutGraph({
+      nodes: graph.nodes.map(node => (node.id === tall.id ? measured : node)),
+      edges: graph.edges,
+    })
+
+    const boxOf = (id: string) => {
+      const node = arranged.nodes.find(candidate => candidate.id === id)!
+      const height = node.measured?.height ?? NODE_SIZES[node.data.kind].height
+      return { top: node.position.y, bottom: node.position.y + height }
+    }
+    expect(boxOf("statement-root-0").bottom).toBeLessThanOrEqual(boxOf("statement-root-1").top)
+  })
 })

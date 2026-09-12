@@ -6,7 +6,7 @@ export type ControlKind = "if" | "loop"
 /**
  * 판단 기호에서 갈래가 나가는 쪽.
  *
- * '예'는 항상 왼쪽, '아니오'는 항상 오른쪽입니다(core/astToFlow.ts의 YES_SIDE).
+ * '예'는 항상 왼쪽, '아니오'는 항상 오른쪽입니다(core/nodeGeometry.ts의 YES_SIDE).
  * 기호마다 다르게 두지 않으므로 노드 데이터에는 저장하지 않습니다.
  */
 export type DecisionSide = "left" | "right"

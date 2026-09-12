@@ -10,7 +10,16 @@ export const NODE_SIZES: Record<FlowNodeData["kind"], { width: number; height: n
   junction: { width: 18, height: 18 },
 }
 
-export function oppositeSide(side: DecisionSide): DecisionSide {
+/**
+ * 위아래로 이웃한 기호 사이의 간격.
+ *
+ * 자동 배치(dagre의 `ranksep`)와 손으로 놓는 자리(판단 기호의 짝 합류점)가 같은
+ * 값을 씁니다. 팔레트에서 막 놓은 합류 기호가 자동 배치한 순서도와 같은 간격으로
+ * 놓여야, 자동 배치를 눌렀을 때 기호가 껑충 뛰지 않습니다.
+ */
+export const RANK_GAP = 86
+
+function oppositeSide(side: DecisionSide): DecisionSide {
   return side === "left" ? "right" : "left"
 }
 

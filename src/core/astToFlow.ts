@@ -1,5 +1,6 @@
-import { NODE_SIZES } from "./nodeGeometry"
+import { RANK_GAP, sizeOf } from "./nodeGeometry"
 import { edgeAppearance, routeEdges } from "./flowEdges"
+import { createJunctionNode, junctionIdOf } from "./graphTopology"
 import dagre from "@dagrejs/dagre"
 import { ASSIGN_GLYPH, INPUT_PREFIX, OUTPUT_PREFIX } from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
@@ -66,7 +67,7 @@ function normalizeBranchSides(
   branchGroups: BranchGroup[],
 ): AlgorithmFlowNode[] {
   const positions = new Map(nodes.map(node => [node.id, { ...node.position }]))
-  const widths = new Map(nodes.map(node => [node.id, NODE_SIZES[node.data.kind].width]))
+  const widths = new Map(nodes.map(node => [node.id, sizeOf(node).width]))
   const centerX = (id: string) => positions.get(id)!.x + widths.get(id)! / 2
   const mirror = (ids: string[], axis: number) => {
     for (const id of ids) positions.get(id)!.x = 2 * axis - positions.get(id)!.x - widths.get(id)!
@@ -99,10 +100,10 @@ function normalizeBranchSides(
     (a, b) => a.position.y - b.position.y || a.id.localeCompare(b.id),
   )) {
     const position = positions.get(node.id)!
-    const size = NODE_SIZES[node.data.kind]
+    const size = sizeOf(node)
     let y = node.position.y + offset
     for (const previous of placed) {
-      const previousSize = NODE_SIZES[previous.data.kind]
+      const previousSize = sizeOf(previous)
       const horizontalOverlap =
         position.x < previous.position.x + previousSize.width &&
         position.x + size.width > previous.position.x
@@ -120,10 +121,13 @@ function normalizeBranchSides(
 export function layoutFlowGraph(graph: FlowGraph, branchGroups: BranchGroup[]): FlowGraph {
   const layoutGraph = new dagre.graphlib.Graph({ multigraph: true })
   layoutGraph.setDefaultEdgeLabel(() => ({}))
-  layoutGraph.setGraph({ rankdir: "TB", nodesep: 54, ranksep: 86, marginx: 36, marginy: 28 })
+  layoutGraph.setGraph({ rankdir: "TB", nodesep: 54, ranksep: RANK_GAP, marginx: 36, marginy: 28 })
 
   graph.nodes.forEach(node => {
-    const size = NODE_SIZES[node.data.kind]
+    // 화면에서 잰 크기가 있으면 그것을 씁니다. 기호 안에 긴 글을 넣으면 도형이
+    // 늘어나는데(.flow-shape의 min-height), 표준 크기로 자리를 잡으면 늘어난 만큼
+    // 아래 기호를 덮어 버립니다.
+    const size = sizeOf(node)
     // Dagre가 노드 라벨 객체에 x/y를 기록하므로 종류별 크기 객체를 공유하면
     // 같은 종류의 모든 노드가 마지막 좌표로 덮입니다.
     layoutGraph.setNode(node.id, { ...size })
@@ -152,7 +156,7 @@ export function layoutFlowGraph(graph: FlowGraph, branchGroups: BranchGroup[]): 
 
   const positioned = graph.nodes.map(node => {
     const point = layoutGraph.node(node.id)
-    const size = NODE_SIZES[node.data.kind]
+    const size = sizeOf(node)
     return {
       ...node,
       position: { x: point.x - size.width / 2, y: point.y - size.height / 2 },
@@ -257,14 +261,15 @@ export function astToFlow(program: Program): FlowGraph {
       }
 
       if (statement.type === "if") {
-        const junctionId = `${id}-junction`
+        const junctionId = junctionIdOf(id)
         nodes.push(
           flowNode(
             id,
             { kind: "decision", label: statement.condition, controlKind: "if" },
             "decision",
           ),
-          flowNode(junctionId, { kind: "junction", label: "합류" }, "junction"),
+          // 자리는 아래 layoutFlowGraph가 정합니다.
+          createJunctionNode(id),
         )
         exits.forEach(exit => addEdge(exit.id, id, exit.branch))
 

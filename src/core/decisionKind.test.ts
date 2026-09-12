@@ -43,21 +43,19 @@ describe("판단 기호 종류 바꾸기", () => {
     ],
   }
 
-  it("조건 분기를 반복으로 바꾸면 예 본문이 판단으로 되돌아온다", () => {
+  it("조건을 반복으로 바꾸면 합류점과 모든 연결선만 삭제한다", () => {
     const { graph, decisionId } = graphOf(ifProgram)
+    const before = structuredClone(graph)
     const next = changeDecisionKind(graph, decisionId, "loop")
-
-    expect(pseudocode(next)).toBe(
-      [
-        "시작",
-        "  수 ← 1",
-        "  [짝수이면 반복]",
-        "    짝수를 센다.",
-        "  홀수를 센다.",
-        "  출력: 결과",
-        "끝",
-      ].join("\n"),
+    const join = decisionId + "-junction"
+    expect(next.nodes.map(node => node.id)).toEqual(
+      graph.nodes.filter(node => node.id !== join).map(node => node.id),
     )
+    expect(next.edges).toEqual(
+      graph.edges.filter(edge => edge.source !== join && edge.target !== join),
+    )
+    expect(next.nodes.find(node => node.id === decisionId)?.data.controlKind).toBe("loop")
+    expect(graph).toEqual(before)
   })
 
   it("합류점의 이름이 바뀌어도 연결 관계로 찾아 반복으로 변환한다", () => {
@@ -75,7 +73,9 @@ describe("판단 기호 종류 바꾸기", () => {
     const before = structuredClone(renamed)
     expect(flowToAst(renamed.nodes, renamed.edges)).toEqual(ifProgram)
     const next = changeDecisionKind(renamed, decisionId, "loop")
-    expect(pseudocode(next)).toEqual(pseudocode(changeDecisionKind(graph, decisionId, "loop")))
+    expect(next.edges).toEqual(
+      renamed.edges.filter(edge => edge.source !== "custom-join" && edge.target !== "custom-join"),
+    )
     expect(next.nodes.some(node => node.id === "custom-join")).toBe(false)
     expect(renamed).toEqual(before)
   })
@@ -94,8 +94,9 @@ describe("판단 기호 종류 바꾸기", () => {
     })
     const next = changeDecisionKind(graph, decisionId, "loop")
 
-    expect(pseudocode(next)).toBe(
-      ["시작", "  [짝수이면 반복]", "    짝수를 센다.", "  출력: 결과", "끝"].join("\n"),
+    const join = `${decisionId}-junction`
+    expect(next.edges).toEqual(
+      graph.edges.filter(edge => edge.source !== join && edge.target !== join),
     )
   })
 
@@ -125,10 +126,11 @@ describe("판단 기호 종류 바꾸기", () => {
 
     const labels = (target: FlowGraph) => target.nodes.map(node => node.data.label).sort()
     expect(labels(roundTrip)).toEqual(labels(graph))
-    expect(() => flowToAst(roundTrip.nodes, roundTrip.edges)).not.toThrow()
+    // 삭제된 연결은 자동으로 복구하지 않으므로 사용자가 다시 이어야 합니다.
+    expect(() => flowToAst(roundTrip.nodes, roundTrip.edges)).toThrow()
   })
 
-  it("바꾼 뒤에도 연결이 끊긴 기호가 남지 않는다", () => {
+  it("바꾼 뒤에도 없는 기호를 참조하는 화살표가 남지 않는다", () => {
     const { graph, decisionId } = graphOf(ifProgram)
 
     for (const next of [
@@ -144,81 +146,54 @@ describe("판단 기호 종류 바꾸기", () => {
     }
   })
 
-  it("옮긴 화살표는 낡은 경로를 버리고, 복귀선은 순서도 왼쪽 통로를 도는 새 경로를 받는다", () => {
-    const { graph, decisionId } = graphOf(ifProgram)
-    const next = changeDecisionKind(graph, decisionId, "loop")
-    const decision = next.nodes.find(node => node.id === decisionId)
-    if (!decision) throw new Error("판단 기호가 있어야 합니다")
+  it.each(["입력만", "출력만", "양방향"])(
+    "짝 합류점에 %s 연결이 있어도 모두 제거한다",
+    direction => {
+      const { graph, decisionId } = graphOf(ifProgram)
+      const join = decisionId + "-junction"
+      const partial = {
+        ...graph,
+        edges: graph.edges.filter(edge =>
+          direction === "입력만"
+            ? edge.source !== join
+            : direction === "출력만"
+              ? edge.target !== join
+              : true,
+        ),
+      }
+      const next = changeDecisionKind(partial, decisionId, "loop")
+      expect(next.nodes.some(node => node.id === join)).toBe(false)
+      expect(next.edges).toEqual(
+        partial.edges.filter(edge => edge.source !== join && edge.target !== join),
+      )
+    },
+  )
 
-    // 합류점 뒤를 이어받은 보통 화살표(아니면 본문 끝 → 출력)는 경로 없이 기본 모양으로 다시 그려집니다.
-    const elseEnd = next.nodes.find(node => node.data.label === "홀수를 센다.")
-    const output = next.nodes.find(node => node.data.kind === "output")
-    if (!elseEnd || !output) throw new Error("아니면 본문과 출력 기호가 있어야 합니다")
-    const rejoined = next.edges.find(edge => edge.source === elseEnd.id)
-    expect(rejoined?.target).toBe(output.id)
-    expect(rejoined?.data?.routePoints).toBeUndefined()
-
-    // 복귀선은 경로가 없으면 곡선으로 그려져 기호를 가로지를 수 있으므로 통로를 돌게 합니다.
-    const loopBacks = next.edges.filter(edge => edge.data?.branch === "loop-back")
-    expect(loopBacks.length).toBeGreaterThan(0)
-    const graphLeft = Math.min(...next.nodes.map(node => node.position.x))
-    for (const edge of loopBacks) {
-      const route = edge.data?.routePoints ?? []
-      expect(route.length).toBeGreaterThan(2)
-      expect(route.some(point => point.x < graphLeft)).toBe(true)
-      expect(route[route.length - 1]).toEqual({
-        x: decision.position.x + NODE_SIZES.decision.width / 2,
-        y: decision.position.y,
-      })
-    }
-  })
-
-  /*
-   * 바깥 반복 본문의 끝에 있는 판단을 바꾸면, 바깥 판단으로 되돌아가던 화살표
-   * (합류점의 다음 화살표 또는 반복의 아니오)의 자리를 새 화살표가 이어받습니다.
-   * 그 화살표도 복귀선이어야 왼쪽 lane으로 돌아갑니다. 보통 화살표로 두면 위로
-   * 올라가는 선이 기호 사이를 가로지릅니다.
-   */
-  it("바깥 반복 본문 끝의 조건을 반복으로 바꾸면 아니오가 복귀선으로 바깥 판단에 돌아간다", () => {
-    const graph = astToFlow({
+  it("바깥 반복으로 돌아가는 합류점의 복귀선도 제거한다", () => {
+    const { graph, decisionId } = graphOf({
       body: [
         {
           type: "loop",
           condition: "바깥",
           body: [
-            { type: "action", text: "a" },
             {
               type: "if",
               condition: "안쪽",
-              thenBody: [{ type: "action", text: "b" }],
+              thenBody: [{ type: "action", text: "처리" }],
               elseBody: [],
             },
           ],
         },
-        { type: "output", expr: "결과" },
       ],
     })
-    const outer = graph.nodes.find(node => node.data.label === "바깥")
-    const inner = graph.nodes.find(node => node.data.label === "안쪽")
-    if (!outer || !inner) throw new Error("바깥과 안쪽 판단이 있어야 합니다")
-
+    const inner = graph.nodes.find(node => node.data.label === "안쪽")!
+    const join = inner.id + "-junction"
+    expect(graph.edges.some(edge => edge.source === join && edge.target === decisionId)).toBe(true)
     const next = changeDecisionKind(graph, inner.id, "loop")
-    const exit = next.edges.find(edge => edge.source === inner.id && edge.sourceHandle === "no")
-    expect(exit?.target).toBe(outer.id)
-    expect(exit?.label).toBe("아니오")
-    expect(exit?.data?.branch).toBe("loop-back")
-    expect(exit?.type).toBe("loop-back")
-    // 아니오 꼭짓점(오른쪽)에서 나가므로 오른쪽 통로를 돕니다.
-    const graphRight = Math.max(
-      ...next.nodes.map(node => node.position.x + NODE_SIZES[node.data.kind].width),
+    expect(next.edges).toEqual(
+      graph.edges.filter(edge => edge.source !== join && edge.target !== join),
     )
-    expect(exit?.data?.routePoints?.[0]?.x).toBe(inner.position.x + NODE_SIZES.decision.width)
-    expect(exit?.data?.routePoints?.some(point => point.x > graphRight)).toBe(true)
-    expect(pseudocode(next)).toBe(
-      ["시작", "  [바깥 반복]", "    a", "    [안쪽 반복]", "      b", "  출력: 결과", "끝"].join(
-        "\n",
-      ),
-    )
+    expect(next.nodes.some(node => node.id === join)).toBe(false)
   })
 
   it("바깥 반복 본문 끝의 반복을 조건으로 바꾸면 합류점이 복귀선으로 바깥 판단에 돌아간다", () => {
@@ -356,5 +331,103 @@ describe("판단 기호 종류 바꾸기", () => {
     expect(next.nodes).toHaveLength(1)
     expect(next.nodes[0].data.controlKind).toBe("loop")
     expect(next.edges).toEqual([])
+  })
+
+  it("연결 전 조건→반복→조건 전환에서 짝 합류점을 다시 생성한다", () => {
+    const graph: FlowGraph = {
+      nodes: [
+        {
+          id: "d1",
+          type: "decision",
+          position: { x: 100, y: 100 },
+          data: { kind: "decision", label: "조건", controlKind: "if" },
+        },
+        {
+          id: "d1-junction",
+          type: "junction",
+          position: { x: 201, y: 300 },
+          data: { kind: "junction", label: "합류" },
+        },
+      ],
+      edges: [],
+    }
+    const before = structuredClone(graph)
+    const loop = changeDecisionKind(graph, "d1", "loop")
+    expect(loop.nodes).toHaveLength(1)
+    const restored = changeDecisionKind(loop, "d1", "if")
+    const join = restored.nodes.find(node => node.id === "d1-junction")!
+    expect(join.data.kind).toBe("junction")
+    expect(join.position.y).toBeGreaterThan(100 + NODE_SIZES.decision.height)
+    expect(restored.edges).toEqual([])
+    expect(changeDecisionKind(restored, "d1", "if")).toEqual(restored)
+    expect(graph).toEqual(before)
+  })
+
+  it("조건→반복→조건 왕복에서 아니면 본문을 합류점 뒤로 밀어내지 않는다", () => {
+    // 조건→반복은 합류점 연결선만 지우므로 복귀선이 없는 '닫히지 않은 반복'이 됩니다.
+    // 되돌릴 때 '아니오'가 가는 아니면 본문을 반복 뒤의 흐름으로 잘못 보면
+    // 아니오 → 합류점 → 아니면 본문으로 배선되어 버립니다.
+    const { graph, decisionId } = graphOf(ifProgram)
+    const loop = changeDecisionKind(graph, decisionId, "loop")
+    const restored = changeDecisionKind(loop, decisionId, "if")
+
+    const yes = restored.edges.find(
+      edge => edge.source === decisionId && edge.sourceHandle === "yes",
+    )
+    const no = restored.edges.find(edge => edge.source === decisionId && edge.sourceHandle === "no")
+    const thenBody = graph.nodes.find(node => node.data.label === "짝수를 센다.")
+    const elseBody = graph.nodes.find(node => node.data.label === "홀수를 센다.")
+    expect(yes?.target).toBe(thenBody?.id)
+    expect(no?.target).toBe(elseBody?.id)
+
+    // 짝 합류점은 두 갈래 아래에 준비되고, 화살표는 학생이 잇습니다.
+    const junctionId = `${decisionId}-junction`
+    const junction = restored.nodes.find(node => node.id === junctionId)
+    expect(junction?.data.kind).toBe("junction")
+    expect(
+      restored.edges.some(edge => edge.source === junctionId || edge.target === junctionId),
+    ).toBe(false)
+    const bodiesBottom = Math.max(
+      ...[thenBody, elseBody].map(node => node!.position.y + NODE_SIZES[node!.data.kind].height),
+    )
+    expect(junction!.position.y).toBeGreaterThan(bodiesBottom)
+    // 반복 뒤의 흐름(출력)은 그대로입니다.
+    expect(restored.edges).toHaveLength(loop.edges.length)
+  })
+
+  it("예 본문만 연결된 반복도 조건으로 바꾸면 본문 아래에 합류점을 준비한다", () => {
+    const graph: FlowGraph = {
+      nodes: [
+        {
+          id: "d1",
+          type: "decision",
+          position: { x: 100, y: 100 },
+          data: { kind: "decision", label: "조건", controlKind: "loop" },
+        },
+        {
+          id: "body",
+          type: "process",
+          position: { x: 0, y: 400 },
+          data: { kind: "process", label: "처리" },
+        },
+      ],
+      edges: [
+        { id: "yes", source: "d1", sourceHandle: "yes", target: "body", data: { branch: "yes" } },
+      ],
+    }
+    const next = changeDecisionKind(graph, "d1", "if")
+    expect(next.nodes.find(node => node.id === "d1-junction")!.position.y).toBeGreaterThan(
+      400 + NODE_SIZES.process.height,
+    )
+    expect(next.edges).toEqual(graph.edges)
+  })
+
+  // 한때 합류점에서 나가는 화살표의 id를 시각으로 지어, 같은 입력이 매번 다른
+  // 그래프를 냈습니다. 순수 함수이므로 결과를 통째로 비교할 수 있어야 합니다.
+  it("같은 입력이면 언제나 같은 그래프를 낸다", () => {
+    const { graph, decisionId } = graphOf(loopProgram)
+    expect(changeDecisionKind(graph, decisionId, "if")).toEqual(
+      changeDecisionKind(graph, decisionId, "if"),
+    )
   })
 })

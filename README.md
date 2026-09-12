@@ -155,6 +155,8 @@ src/
     astToFlow.ts        AST → 순서도 그래프
     flowToAst.ts        순서도 그래프 → AST
     decisionKind.ts     판단 기호 조건 분기 ↔ 반복 전환 재배선
+    removeNodes.ts      기호 삭제(판단 기호와 짝 합류 기호를 함께)
+    graphTopology.ts    공통 합류점 탐색과 짝 식별 규칙
     edgeGeometry.ts     화면·저장 이미지 공용 화살표 경로 계산
     flowToSvg.ts        순서도 그래프 → 저장용 SVG
     workspaceStore.ts   작업 내용 자동 저장(localStorage)

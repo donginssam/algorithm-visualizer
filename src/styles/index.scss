@@ -1024,30 +1024,37 @@ h2 {
    노드 편집 대화상자
    ========================================================================= */
 
-.modal-backdrop {
-  position: fixed;
-  z-index: 1000;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-  background: rgb(15 23 42 / 45%);
-}
-
-.node-editor-dialog {
-  width: min(440px, 100%);
-  padding: var(--space-5);
+/*
+ * 여백은 대화상자가 아니라 안쪽 패널에 둡니다. 배경을 탭했는지 가리는 판정이
+ * 이벤트 대상으로 이뤄지므로(components/ModalDialog.tsx), 대화상자 자체에 여백이
+ * 있으면 카드 가장자리를 눌러도 배경으로 세어 닫혀 버립니다.
+ */
+.app-dialog {
+  width: min(440px, calc(100% - 36px));
+  max-height: calc(100dvh - 36px);
+  padding: 0;
+  overflow: auto;
+  border: 0;
   border-radius: var(--radius-lg);
+  color: var(--text-strong);
   background: var(--surface-card);
   box-shadow: 0 24px 70px rgb(15 23 42 / 30%);
+
+  &::backdrop {
+    background: rgb(15 23 42 / 45%);
+  }
 }
 
-.node-editor-dialog h3 {
+.app-dialog-panel {
+  padding: var(--space-5);
+}
+
+.app-dialog h3 {
   margin-bottom: var(--space-5);
   font-size: 21px;
 }
 
-.node-editor-dialog label {
+.app-dialog label {
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -1058,8 +1065,8 @@ h2 {
 }
 
 /* font-size 16px는 iOS에서 포커스 시 자동 확대되는 것을 막아 줍니다. */
-.node-editor-dialog input,
-.node-editor-dialog select {
+.app-dialog input,
+.app-dialog select {
   width: 100%;
   min-height: 48px;
   padding: 10px 12px;

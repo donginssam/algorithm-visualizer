@@ -1,4 +1,5 @@
 import { useRegisterSW } from "virtual:pwa-register/react"
+import { ModalDialog } from "./ModalDialog"
 
 interface UpdatePromptProps {
   /** 새로 고치기 전에 예약해 둔 저장을 흘려보냅니다. */
@@ -31,30 +32,23 @@ export function UpdatePrompt({ onBeforeRefresh }: UpdatePromptProps) {
   }
 
   return (
-    <div className="modal-backdrop" role="presentation" onPointerDown={dismiss}>
-      <div
-        className="node-editor-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="update-dialog-title"
-        onPointerDown={event => event.stopPropagation()}
-        onKeyDown={event => {
-          if (event.key === "Escape") dismiss()
-        }}
-      >
-        <h3 id="update-dialog-title">새 버전이 나왔어요</h3>
-        <p className="dialog-text">
-          지금 새로 고치면 최신 기능으로 바뀝니다. 만들던 내용은 그대로 남아요.
-        </p>
-        <div className="dialog-actions">
+    <ModalDialog
+      title="새 버전이 나왔어요"
+      onClose={dismiss}
+      actions={
+        <>
           <button type="button" autoFocus onClick={dismiss}>
             나중에
           </button>
           <button type="button" className="primary" onClick={refresh}>
             지금 새로 고침
           </button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <p className="dialog-text">
+        지금 새로 고치면 최신 기능으로 바뀝니다. 만들던 내용은 그대로 남아요.
+      </p>
+    </ModalDialog>
   )
 }

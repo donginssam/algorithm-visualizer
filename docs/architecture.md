@@ -142,6 +142,8 @@ iOS `apple-touch-icon`은 지원 범위 밖이라 두지 않습니다.
 
 ## 화면 분할과 불러오기
 
+세 대화상자(초기화·새 버전·기호 편집)는 모두 [`src/components/ModalDialog.tsx`](../src/components/ModalDialog.tsx)를 씁니다. 네이티브 `<dialog>`를 `showModal()`로 열어 포커스 가둠과 뒤쪽 화면 비활성화를 브라우저에 맡기고, Escape는 `cancel` 이벤트와 `keydown` 양쪽으로 받습니다(브라우저 바깥층에서 처리하는 `cancel`이 웹뷰·자동화 환경에서 오지 않는 것을 확인했습니다).
+
 [`src/App.tsx`](../src/App.tsx)는 상단바와 두 대화상자(초기화·새 버전)만 직접 가지고, 나머지 두 화면은 `React.lazy`로 나눠 불러옵니다. 무거운 라이브러리(`@xyflow/react`, `@codemirror/*`, `@dagrejs/dagre`)가 전부 편집 화면에만 필요하기 때문입니다. `ReactFlowProvider`도 유일한 소비자인 [`src/components/EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) 안에 둡니다.
 
 두 화면의 불러오는 시점은 서로 다릅니다.
@@ -171,6 +173,8 @@ iOS `apple-touch-icon`은 지원 범위 밖이라 두지 않습니다.
 | `src/examples/`   | 학습용 예제 AST                                                |
 
 `src/core/`는 가능한 한 DOM과 React에 의존하지 않는 순수 로직으로 유지합니다. 변환 규칙을 이 영역에 모으면 Vitest로 빠르게 검증하고 화면과 PNG에서 같은 결과를 재사용할 수 있습니다.
+
+유일한 예외가 [`src/core/exportPng.ts`](../src/core/exportPng.ts)입니다. 그림을 파일로 굽는 일은 브라우저 캔버스가 있어야만 할 수 있습니다. 대신 **무엇을 그릴지 정하는 일은 전부 `flowToSvg.ts`가 맡아** 브라우저 없이 검증하고, 이 파일은 그 결과를 래스터화해 내려받기만 합니다.
 
 ## 현재 범위에 포함하지 않은 기능
 

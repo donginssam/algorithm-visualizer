@@ -20,7 +20,7 @@ const ARROW_MARKER_SIZE = 16
  * 색을 비워 두면 React Flow가 기본색(#b1b1b7)을 인라인 스타일로 박아 넣어
  * 선만 진해지고 화살촉은 흐린 채로 남습니다.
  */
-export function arrowMarker(branch: FlowEdgeData["branch"]): EdgeMarker {
+function arrowMarker(branch: FlowEdgeData["branch"]): EdgeMarker {
   return {
     type: MarkerType.ArrowClosed,
     width: ARROW_MARKER_SIZE,

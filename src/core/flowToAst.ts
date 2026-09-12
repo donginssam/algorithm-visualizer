@@ -4,9 +4,11 @@ import {
   INPUT_PREFIX,
   OUTPUT_LABEL,
   OUTPUT_PREFIX,
+  stripIoLabel,
 } from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./flowTypes"
+import { edgesBySource, edgesByTarget } from "./graphTopology"
 
 export class FlowValidationError extends Error {
   constructor(message: string) {
@@ -45,10 +47,7 @@ function statementFromNode(node: AlgorithmFlowNode): Statement {
   }
 
   if (node.data.kind === "input") {
-    const variable = label
-      .replace(new RegExp(`^${INPUT_LABEL}\\s*:\\s*`), "")
-      .replace(new RegExp(`\\s+${INPUT_LABEL}$`), "")
-      .trim()
+    const variable = stripIoLabel(label, [INPUT_LABEL])
     if (!variable || variable === label) {
       throw new FlowValidationError(
         `'${label || INPUT_LABEL}' 기호는 '${INPUT_PREFIX}변수' 형식으로 적어 주세요.`,
@@ -58,10 +57,7 @@ function statementFromNode(node: AlgorithmFlowNode): Statement {
   }
 
   if (node.data.kind === "output") {
-    const expr = label
-      .replace(new RegExp(`^${OUTPUT_LABEL}\\s*:\\s*`), "")
-      .replace(new RegExp(`\\s+${OUTPUT_LABEL}$`), "")
-      .trim()
+    const expr = stripIoLabel(label, [OUTPUT_LABEL])
     if (!expr || expr === label) {
       throw new FlowValidationError(
         `'${label || OUTPUT_LABEL}' 기호는 '${OUTPUT_PREFIX}값' 형식으로 적어 주세요.`,
@@ -115,17 +111,8 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
     }
   }
 
-  const outgoing = new Map<string, AlgorithmFlowEdge[]>()
-  const incoming = new Map<string, AlgorithmFlowEdge[]>()
-  for (const edge of edges) {
-    const sourceEdges = outgoing.get(edge.source) ?? []
-    sourceEdges.push(edge)
-    outgoing.set(edge.source, sourceEdges)
-
-    const targetEdges = incoming.get(edge.target) ?? []
-    targetEdges.push(edge)
-    incoming.set(edge.target, targetEdges)
-  }
+  const outgoing = edgesBySource(edges)
+  const incoming = edgesByTarget(edges)
 
   const startEdges = outgoing.get(starts[0].id) ?? []
   if (startEdges.length === 0) {
