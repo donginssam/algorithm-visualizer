@@ -105,6 +105,40 @@ function blocksVertical(rects: Rect[], x: number, y0: number, y1: number): boole
   )
 }
 
+/** y0~y1 구간에 걸쳐 있는 기호들. 수직 선이 지나갈 때의 장애물 후보입니다. */
+function inVerticalStrip(rects: Rect[], y0: number, y1: number): Rect[] {
+  const top = Math.min(y0, y1)
+  const bottom = Math.max(y0, y1)
+  return rects.filter(rect => rect.bottom > top && rect.top < bottom)
+}
+
+/**
+ * y0~y1 사이를 내려가는 수직 선을 놓을 x. `clearHorizontalY`의 세로판입니다.
+ * 원하는 열에 기호가 있으면 그 기호의 왼쪽이나 오른쪽으로 비킵니다.
+ */
+function clearVerticalX(
+  rects: Rect[],
+  y0: number,
+  y1: number,
+  preferredX: number,
+  allow: (x: number) => boolean,
+  prefer: -1 | 1,
+): number {
+  const strip = inVerticalStrip(rects, y0, y1)
+  const isClear = (x: number) =>
+    !strip.some(rect => rect.left - CLEARANCE < x && rect.right + CLEARANCE > x)
+  if (isClear(preferredX)) return preferredX
+
+  const candidates = strip
+    .flatMap(rect => [rect.left - CLEARANCE, rect.right + CLEARANCE])
+    .filter(x => allow(x) && isClear(x))
+    .sort((a, b) => {
+      const gap = Math.abs(a - preferredX) - Math.abs(b - preferredX)
+      return gap !== 0 ? gap : (b - preferredX) * prefer - (a - preferredX) * prefer
+    })
+  return candidates[0] ?? preferredX
+}
+
 /**
  * 복귀선이 도는 통로.
  *
@@ -176,6 +210,171 @@ export function loopBackRoute(
       ? preferredExitY
       : exitY
   return [start, { x: start.x, y: dodgedExitY }, { x: laneX, y: dodgedExitY }, ...tail]
+}
+
+/** 엣지가 어느 꼭짓점에서 나가는지. 갈래가 아니면 아래쪽 가운데입니다. */
+function exitBranchOf(edge: AlgorithmFlowEdge): "yes" | "no" | null {
+  return edge.sourceHandle === "yes" || edge.sourceHandle === "no" ? edge.sourceHandle : null
+}
+
+/**
+ * 일반 화살표(다음·예·아니오)의 직각 경로.
+ *
+ * - 아래쪽에서 나가는 화살표는 두 기호 사이 중간 높이에서 한 번 꺾습니다. 다음
+ *   기호가 위나 옆에 있으면(학생이 그렇게 둔 경우) 두 기호 오른쪽 바깥 열로 돌아갑니다.
+ * - 예/아니오는 마름모의 좌우 꼭짓점에서 각자의 방향으로 나가(교과서 표기) 목적지
+ *   열까지 옆으로 간 뒤 내려갑니다. 목적지가 마름모 바로 아래면 도형을 뚫지 않도록
+ *   최소한 옆으로 비켜 놓습니다.
+ * - 빈 갈래(합류점으로 바로 가는 예/아니오)는 다음 기호들을 가로지르지 않도록
+ *   순서도 바깥 통로로 우회합니다.
+ *
+ * 복귀선과 같은 규칙으로 다른 기호를 피합니다. 내려가는 세로 선은 기호가 있으면
+ * 옆 열로, 가로 선은 위아래로 비킵니다. 학생이 기호를 옮겨 화살표 길목에 두어도
+ * 선이 그 기호 뒤로 지나가지 않게 하기 위해서입니다.
+ */
+function plainRoute(
+  nodes: AlgorithmFlowNode[],
+  edge: AlgorithmFlowEdge,
+  bounds: { left: number; right: number },
+): RoutePoint[] | undefined {
+  const source = nodes.find(node => node.id === edge.source)
+  const target = nodes.find(node => node.id === edge.target)
+  if (!source || !target) return undefined
+
+  const exitBranch = source.data.kind === "decision" ? exitBranchOf(edge) : null
+  const exitSide = exitBranch ? branchSide(exitBranch) : null
+  const start = sourcePoint(source, edge.sourceHandle)
+  const end = targetPoint(target)
+  const obstacles = nodes
+    .filter(node => node.id !== edge.source && node.id !== edge.target)
+    .map(rectOf)
+
+  if (!exitSide) {
+    if (end.y - 34 < start.y + 34) {
+      const outside =
+        Math.max(
+          source.position.x + sizeOf(source).width,
+          target.position.x + sizeOf(target).width,
+        ) + 34
+      const bendX = clearVerticalX(
+        obstacles,
+        start.y + 34,
+        end.y - 34,
+        outside,
+        x => x >= outside,
+        1,
+      )
+      return [
+        start,
+        { x: start.x, y: start.y + 34 },
+        { x: bendX, y: start.y + 34 },
+        { x: bendX, y: end.y - 34 },
+        { x: end.x, y: end.y - 34 },
+        end,
+      ]
+    }
+    const preferredY = start.y + (end.y - start.y) / 2
+    const middleY = clearHorizontalY(
+      obstacles,
+      start.x,
+      end.x,
+      preferredY,
+      y => y >= start.y + CLEARANCE && y <= end.y - CLEARANCE,
+      1,
+    )
+    return [start, { x: start.x, y: middleY }, { x: end.x, y: middleY }, end]
+  }
+
+  const isDirectMerge = target.data.kind === "junction"
+  const laneX = exitSide === "left" ? bounds.left - 34 : bounds.right + 34
+  const turnX = exitSide === "left" ? Math.min(end.x, start.x - 12) : Math.max(end.x, start.x + 12)
+  const bendX = isDirectMerge
+    ? laneX
+    : clearVerticalX(
+        obstacles,
+        start.y,
+        end.y - 34,
+        turnX,
+        exitSide === "left" ? x => x <= start.x - 12 : x => x >= start.x + 12,
+        exitSide === "left" ? -1 : 1,
+      )
+  const entryY = clearHorizontalY(obstacles, bendX, end.x, end.y - 34, y => y <= end.y - 34, -1)
+  return [start, { x: bendX, y: start.y }, { x: bendX, y: entryY }, { x: end.x, y: entryY }, end]
+}
+
+/**
+ * 모든 화살표의 경로를 지금 기호 위치와 크기로 다시 계산합니다.
+ *
+ * 경로는 좌표에 맞춰 계산해 둔 값이라, 학생이 기호를 끌어 옮기거나 긴 글을 넣어
+ * 기호가 커지면 낡아서 옮긴 기호 뒤로 선이 지나가거나 긴 사선이 그려집니다. 그래서
+ * 자동 배치 직후뿐 아니라 그래프가 바뀔 때마다(FlowCanvas의 replaceGraph) 이 함수로
+ * 다시 계산합니다. 화면에서 측정한 크기(`measured`)가 있으면 그것을 씁니다.
+ *
+ * 경로가 그대로인 화살표는 같은 엣지 객체를 돌려주어 불필요한 다시 그리기를 피합니다.
+ */
+export function routeEdges(
+  nodes: AlgorithmFlowNode[],
+  edges: AlgorithmFlowEdge[],
+): AlgorithmFlowEdge[] {
+  const bounds = {
+    left: Math.min(...nodes.map(node => node.position.x)),
+    right: Math.max(...nodes.map(node => node.position.x + sizeOf(node).width)),
+  }
+  const plain = edges.map(edge => {
+    if (edge.data?.branch === "loop-back") return edge
+    const routePoints = plainRoute(nodes, edge, bounds)
+    if (!routePoints || sameRoute(edge.data?.routePoints, routePoints)) return edge
+    return { ...edge, data: { ...edge.data, routePoints } }
+  })
+  return routeLoopBacks(nodes, plain)
+}
+
+/** 중첩 반복의 복귀선 통로 간격. 짧은 반복이 안쪽, 바깥 반복일수록 바깥 통로를 씁니다. */
+const LANE_GAP = 26
+
+/**
+ * 모든 복귀선의 경로를 지금 기호 위치와 크기로 다시 계산합니다.
+ *
+ * 복귀선 경로는 기호 사이를 비켜 가도록 좌표에 맞춰 계산해 두는데, 학생이 기호를
+ * 끌어 옮기거나 긴 글을 넣어 기호가 커지면 그 경로는 낡아서 옮긴 기호 뒤로 선이
+ * 지나갑니다. `routeEdges`가 일반 화살표와 함께 매번 다시 계산할 때 이 함수를 씁니다.
+ *
+ * 경로가 그대로인 복귀선은 같은 엣지 객체를 돌려주어 불필요한 다시 그리기를 피합니다.
+ */
+export function routeLoopBacks(
+  nodes: AlgorithmFlowNode[],
+  edges: AlgorithmFlowEdge[],
+): AlgorithmFlowEdge[] {
+  const nodesById = new Map(nodes.map(node => [node.id, node]))
+  const spans = edges
+    .filter(edge => edge.data?.branch === "loop-back")
+    .map(edge => {
+      const source = nodesById.get(edge.source)
+      const target = nodesById.get(edge.target)
+      const sourceBottom = source ? source.position.y + sizeOf(source).height : 0
+      const targetTop = target?.position.y ?? 0
+      return { id: edge.id, span: Math.abs(sourceBottom - targetTop) }
+    })
+    .sort((a, b) => a.span - b.span)
+  const offsets = new Map(spans.map((entry, index) => [entry.id, index * LANE_GAP]))
+
+  return edges.map(edge => {
+    if (edge.data?.branch !== "loop-back") return edge
+    const routePoints = loopBackRoute(
+      nodes,
+      edge.source,
+      edge.sourceHandle,
+      edge.target,
+      offsets.get(edge.id),
+    )
+    if (sameRoute(edge.data.routePoints, routePoints)) return edge
+    return { ...edge, data: { ...edge.data, routePoints } }
+  })
+}
+
+function sameRoute(a: RoutePoint[] | undefined, b: RoutePoint[] | undefined): boolean {
+  if (!a || !b) return a === b
+  return a.length === b.length && a.every((point, i) => point.x === b[i].x && point.y === b[i].y)
 }
 
 export function edgeAppearance(

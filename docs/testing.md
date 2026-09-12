@@ -68,6 +68,9 @@ parsePseudocode(astToText(program)) === program
 - 출발 방향에 따른 바깥 통로, 일반 기호의 아래쪽 출발점과 통로 간격
 - 복귀선의 예/아니오 라벨 유지 및 없는 기호 처리
 - 같은 높이에 기호가 있으면 꼭짓점 옆에서 위아래로 비켜 통로로 가고, 없으면 꼭짓점 높이 그대로 간다
+- `routeLoopBacks`: 중첩 반복의 통로 배정, 경로가 같으면 같은 객체 유지, 기호를 옮기거나 커지면 다시 계산
+- `routeEdges`: 일반 화살표도 기호를 옮기거나 커지면 새 좌표로 다시 계산하고, 예/아니오는 옮긴 마름모의 꼭짓점에서 나간다
+- `routeEdges`: 다음 기호를 위에 두면 두 기호 옆으로 돌아가고, 아니오 꼭짓점 아래에 기호를 두면 옆 열로 비켜 내려간다
 
 ### `decisionKind.test.ts`
 
@@ -105,6 +108,15 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 - `theme_color`가 `index.html`·`_tokens.scss`와 같은 값
 
 이 테스트는 선언 내용만 봅니다. 파일이 실제로 그 크기인지는 [설치와 오프라인](#설치와-오프라인) 점검에서 확인합니다.
+
+### `autoLayout.test.ts`
+
+화면에서 만든 순서도를 다시 배치하는 규칙을 검사합니다.
+
+- 이미 자동 배치된 그래프를 다시 배치해도 좌표가 같음(갈래 되짚기가 `astToFlow`의 기록과 일치한다는 뜻)
+- 기호를 흩어 놓아도 원래 자리로 되돌아옴
+- 아직 잇지 않은 기호를 지우지 않고 함께 배치함
+- 연결이 끊긴 판단 기호에서도 실패하지 않음
 
 ## 변경 유형별 점검
 
@@ -180,12 +192,13 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 5. 끝 기호나 연결이 부족하면 다음 행동을 알려 주고, 수정하면 의사코드가 다시 나타납니다.
 6. 판단 기호의 `예/아니오` 선과 반복 복귀선이 다른 기호를 가로지르지 않습니다.
 7. 노드와 엣지를 선택해 편집·삭제할 수 있습니다.
-8. 기호 추가와 노드 이동 후 `Ctrl/Cmd + Z`, `Ctrl/Cmd + Shift + Z`가 각각 undo와 redo로 동작합니다.
-9. 의사코드 편집기에 초점이 있을 때 undo가 순서도 대신 글자만 되돌립니다.
-10. 예제를 연달아 불러와도 순서도가 중앙에 적절한 크기로 맞춰집니다.
-11. 예제 페이지를 왕복하고 브라우저 뒤로가기를 사용해도 상태가 유지됩니다.
-12. PNG를 저장하면 모든 노드, 우회선, 라벨이 잘리지 않고 들어갑니다.
-13. body에 세로 스크롤이 생기지 않고 콘솔 오류·경고가 없습니다.
+8. 기호를 여기저기 옮겨 흩어 놓은 뒤 캔버스 조작 막대의 `자동 배치하고 화면 맞추기`를 누르면 순서도가 정돈되고 화면에 맞습니다. 아직 잇지 않은 기호도 사라지지 않고 함께 배치되며, `Ctrl/Cmd + Z` 한 번으로 누르기 직전 자리가 돌아옵니다.
+9. 기호 추가와 노드 이동 후 `Ctrl/Cmd + Z`, `Ctrl/Cmd + Shift + Z`가 각각 undo와 redo로 동작합니다.
+10. 의사코드 편집기에 초점이 있을 때 undo가 순서도 대신 글자만 되돌립니다.
+11. 예제를 연달아 불러와도 순서도가 중앙에 적절한 크기로 맞춰집니다.
+12. 예제 페이지를 왕복하고 브라우저 뒤로가기를 사용해도 상태가 유지됩니다.
+13. PNG를 저장하면 모든 노드, 우회선, 라벨이 잘리지 않고 들어갑니다.
+14. body에 세로 스크롤이 생기지 않고 콘솔 오류·경고가 없습니다.
 
 ### 설치와 오프라인
 
@@ -195,7 +208,7 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 2. Application → Manifest에 **아무 경고도 없고** 주소창에 설치 버튼이 나타납니다. 아이콘과 갈무리는 이 화면에서만 실제로 불려 오므로, CDP의 `Page.getAppManifest`가 `errors: []`를 돌려주는 것은 근거가 되지 않습니다(그 명령은 파싱만 합니다). 아이콘을 SVG로 두면 여기서 `Icon … failed to load`가 납니다.
 3. Application → Cache Storage의 precache 목록에 vendor chunk와 함께 **`ExamplesPage-*.js`가 들어 있습니다.** 예제 화면에 들어간 적이 없어도 있어야 합니다. 없으면 오프라인에서 예제 화면이 빕니다.
 4. Network를 Offline으로 두고 강력 새로 고침해도 편집기·순서도·팔레트가 뜨고, 기호 추가와 연결, `#/examples`, `이미지로 저장`, 저장한 작업 복원이 모두 동작합니다.
-5. 오프라인에서 한글이 시스템 글꼴로 자연스럽게 나옵니다. 이때 Pretendard subset 요청 실패 오류가 콘솔에 뜨는 것은 의도한 동작입니다. CDN의 CSS는 브라우저 HTTP 캐시에 남아 있어 `@font-face` 규칙은 살아 있고, 화면에 그려진 글자의 subset 수만큼 요청이 실패하므로 개수는 그때그때 다릅니다. 위 [11번](#브라우저-수동-회귀-점검)의 "콘솔 오류 없음"은 온라인 기준입니다.
+5. 오프라인에서 한글이 시스템 글꼴로 자연스럽게 나옵니다. 이때 Pretendard subset 요청 실패 오류가 콘솔에 뜨는 것은 의도한 동작입니다. CDN의 CSS는 브라우저 HTTP 캐시에 남아 있어 `@font-face` 규칙은 살아 있고, 화면에 그려진 글자의 subset 수만큼 요청이 실패하므로 개수는 그때그때 다릅니다. 위 [14번](#브라우저-수동-회귀-점검)의 "콘솔 오류 없음"은 온라인 기준입니다.
 6. 오프라인에서 쿼리가 붙은 주소(`…/algorithm-visualizer/?from=lms`)로 들어가도 앱이 그대로 뜹니다. 이 경로만 `navigateFallback`을 씁니다.
 7. 소스를 고쳐 다시 빌드하면 열려 있던 창에 새 버전 대화상자가 뜨고, `나중에`는 편집을 그대로 이어 가며 `지금 새로 고침`은 만들던 순서도를 위치까지 유지한 채 새 코드로 바뀝니다.
 
@@ -236,6 +249,7 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 | 브랜드 마크      | `public/icon.svg`, `public/icon-maskable.svg`, 여기서 뽑은 `icon-*.png`, `App.tsx`의 `BrandMark`                                          |
 | 화살표 색·굵기   | CSS 변수, React Flow marker, 저장 SVG marker                                                                                              |
 | 그래프 범위      | 자동 viewport 맞춤, PNG export bounds                                                                                                     |
+| 갈래 좌우 정렬   | `astToFlow`가 적는 `BranchGroup`, `autoLayout`의 `deriveBranchGroups`, `normalizeBranchSides`                                             |
 | 배포 경로        | `vite.config.ts`의 `base`, `constants/pwa.ts`의 `PAGES_BASE`, manifest `scope`·`start_url`, service worker scope, 저장소 이름, Pages 설정 |
 | 앱 테마색        | `index.html`의 `theme-color`, manifest `theme_color`, `_tokens.scss`의 `--surface-page`                                                   |
 | chunk 구성       | `React.lazy` 경계, `manualChunks` 목록, `workbox.globPatterns`, `package.json` 의존성                                                     |

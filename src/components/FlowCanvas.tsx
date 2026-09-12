@@ -1,6 +1,7 @@
 import {
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   ReactFlow,
   addEdge,
@@ -32,7 +33,8 @@ import {
 } from "../constants/pseudocode"
 import type { Program } from "../core/ast"
 import { astToFlow } from "../core/astToFlow"
-import { edgeAppearance, loopBackRoute } from "../core/flowEdges"
+import { autoLayoutGraph } from "../core/autoLayout"
+import { edgeAppearance, loopBackRoute, routeEdges } from "../core/flowEdges"
 import { changeDecisionKind } from "../core/decisionKind"
 import { flowToAst, FlowValidationError } from "../core/flowToAst"
 import { flowToSvg, graphBounds } from "../core/flowToSvg"
@@ -240,7 +242,12 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   },
   ref,
 ) {
-  const initialGraph = useRef(restoredGraph ?? astToFlow(program)).current
+  // 되살린 그래프의 화살표 경로도 저장 당시 좌표라 지금 규칙으로 다시 계산합니다.
+  const initialGraph = useRef(
+    restoredGraph
+      ? { nodes: restoredGraph.nodes, edges: routeEdges(restoredGraph.nodes, restoredGraph.edges) }
+      : astToFlow(program),
+  ).current
   const [nodes, setNodesState] = useState<AlgorithmFlowNode[]>(initialGraph.nodes)
   const [edges, setEdgesState] = useState<AlgorithmFlowEdge[]>(initialGraph.edges)
   const [editing, setEditing] = useState<EditingState | null>(null)
@@ -256,10 +263,16 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   >()
   // 캔버스의 실제 크기. 탭 전환으로 감춰져 있는 동안에는 0입니다.
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
+  // 자동 배치처럼 revision이 바뀌지 않는 변경에서도 화면을 다시 맞추게 하는 방아쇠입니다.
+  const [fitRequest, setFitRequest] = useState(0)
 
   // 모든 그래프 변경을 한 길목으로 모아 화면 상태와 저장할 상태가 어긋나지 않게 합니다.
   const replaceGraph = useCallback(
-    (nextNodes: AlgorithmFlowNode[], nextEdges: AlgorithmFlowEdge[]) => {
+    (nextNodes: AlgorithmFlowNode[], edgesBeforeRouting: AlgorithmFlowEdge[]) => {
+      // 기호를 끌어 옮기거나 크기가 바뀌면 저장해 둔 화살표 경로가 낡아 옮긴 기호
+      // 뒤로 선이 지나가거나 긴 사선이 그려집니다. 모든 변경이 지나는 이 길목에서
+      // 지금 좌표로 다시 계산합니다.
+      const nextEdges = routeEdges(nextNodes, edgesBeforeRouting)
       nodesRef.current = nextNodes
       edgesRef.current = nextEdges
       setNodesState(nextNodes)
@@ -439,7 +452,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       cancelled = true
       window.cancelAnimationFrame(frame)
     }
-  }, [canvasSize, revision, getViewport, setViewport])
+  }, [canvasSize, revision, fitRequest, getViewport, setViewport])
 
   const exportPng = useCallback(async () => {
     const { markup, width, height } = flowToSvg(nodesRef.current, edgesRef.current)
@@ -592,6 +605,20 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     return true
   }, [commitGraph])
 
+  /*
+   * 흩어진 기호를 자동 배치하고 화면에 맞춥니다.
+   *
+   * 의사코드로 되돌렸다가 다시 그리지 않고 지금 있는 기호를 그대로 옮깁니다.
+   * 아직 잇지 않은 기호가 있는 도중에 누르는 일이 가장 흔하기 때문입니다.
+   * 되돌리기로 원래 자리를 되찾을 수 있도록 commitGraph를 지납니다.
+   */
+  const autoArrange = useCallback(() => {
+    const arranged = autoLayoutGraph({ nodes: nodesRef.current, edges: edgesRef.current })
+    commitGraph(arranged.nodes, arranged.edges)
+    needsFitRef.current = true
+    setFitRequest(request => request + 1)
+  }, [commitGraph])
+
   useEffect(() => {
     const handleKeyboardShortcut = (event: KeyboardEvent) => {
       if (containerRef.current?.offsetParent === null || isTextEditingTarget(event.target)) return
@@ -730,7 +757,18 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
             aria-label="순서도 편집 캔버스"
           >
             <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#cbd5e1" />
-            <Controls showInteractive={false} />
+            <Controls showInteractive={false} showFitView={false}>
+              {/* React Flow 기본 '화면 맞춤' 자리를 그대로 쓰되 자동 배치까지 함께 합니다. */}
+              <ControlButton
+                onClick={autoArrange}
+                title="자동 배치하고 화면 맞추기"
+                aria-label="자동 배치하고 화면 맞추기"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 30">
+                  <path d="M3.692 4.63c0-.53.4-.938.939-.938h5.215V0H4.708C2.13 0 0 2.054 0 4.63v5.216h3.692V4.631zM27.354 0h-5.2v3.692h5.17c.53 0 .984.4.984.939v5.215H32V4.631A4.624 4.624 0 0027.354 0zm.954 24.83c0 .532-.4.94-.939.94h-5.215v3.768h5.215c2.577 0 4.631-2.13 4.631-4.707v-5.139h-3.692v5.139zm-23.677.94c-.531 0-.939-.4-.939-.94v-5.138H0v5.139c0 2.577 2.13 4.707 4.708 4.707h5.138V25.77H4.631z" />
+                </svg>
+              </ControlButton>
+            </Controls>
           </ReactFlow>
         </EdgeActionContext.Provider>
       </NodeActionContext.Provider>

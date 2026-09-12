@@ -1,10 +1,5 @@
-import {
-  branchSide,
-  NODE_SIZES,
-  sourcePoint as nodeSourcePoint,
-  targetPoint as nodeTargetPoint,
-} from "./nodeGeometry"
-import { edgeAppearance, loopBackRoute } from "./flowEdges"
+import { NODE_SIZES } from "./nodeGeometry"
+import { edgeAppearance, routeEdges } from "./flowEdges"
 import dagre from "@dagrejs/dagre"
 import { ASSIGN_GLYPH, INPUT_PREFIX, OUTPUT_PREFIX } from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
@@ -37,11 +32,6 @@ function statementData(statement: Exclude<Statement, { type: "loop" | "if" }>): 
   }
 }
 
-/** 엣지가 어느 꼭짓점에서 나가는지. 갈래가 아니면 아래쪽 가운데입니다. */
-function exitBranchOf(edge: AlgorithmFlowEdge): "yes" | "no" | null {
-  return edge.sourceHandle === "yes" || edge.sourceHandle === "no" ? edge.sourceHandle : null
-}
-
 /**
  * 판단 한 곳의 두 갈래에 속한 기호들.
  *
@@ -49,7 +39,7 @@ function exitBranchOf(edge: AlgorithmFlowEdge): "yes" | "no" | null {
  * 오른쪽에 놓였는지 확인하려면 어느 기호가 어느 갈래인지 정확히 알아야 하는데,
  * 완성된 그래프를 되짚어 추측하는 것보다 만들 때 적어 두는 편이 정확합니다.
  */
-interface BranchGroup {
+export interface BranchGroup {
   decisionId: string
   yes: string[]
   no: string[]
@@ -127,7 +117,7 @@ function normalizeBranchSides(
   return nodes.map(node => ({ ...node, position: positions.get(node.id)! }))
 }
 
-function layoutFlowGraph(graph: FlowGraph, branchGroups: BranchGroup[]): FlowGraph {
+export function layoutFlowGraph(graph: FlowGraph, branchGroups: BranchGroup[]): FlowGraph {
   const layoutGraph = new dagre.graphlib.Graph({ multigraph: true })
   layoutGraph.setDefaultEdgeLabel(() => ({}))
   layoutGraph.setGraph({ rankdir: "TB", nodesep: 54, ranksep: 86, marginx: 36, marginy: 28 })
@@ -169,90 +159,9 @@ function layoutFlowGraph(graph: FlowGraph, branchGroups: BranchGroup[]): FlowGra
     }
   })
   const nodes = normalizeBranchSides(positioned, graph.edges, branchGroups)
-  // 아래 화살표 경로 계산은 정렬이 끝난 좌표를 봐야 합니다. 손잡이(화면)와
-  // 경로(선)가 서로 다른 쪽을 고르면 선이 도형을 가로질러 버립니다.
-  const nodesById = new Map(nodes.map(node => [node.id, node]))
-  const graphLeft = Math.min(...nodes.map(node => node.position.x))
-  const graphRight = Math.max(
-    ...nodes.map(node => node.position.x + NODE_SIZES[node.data.kind].width),
-  )
-
-  const loopEdges = graph.edges
-    .filter(edge => edge.data?.branch === "loop-back")
-    .map(edge => {
-      const source = nodesById.get(edge.source)
-      const target = nodesById.get(edge.target)
-      const sourceSize = source ? NODE_SIZES[source.data.kind] : NODE_SIZES.process
-      const sourceBottom = (source?.position.y ?? 0) + sourceSize.height
-      const targetTop = target?.position.y ?? 0
-      return {
-        edge,
-        span: Math.abs(sourceBottom - targetTop),
-      }
-    })
-    .sort((a, b) => a.span - b.span)
-  const loopOffsets = new Map(loopEdges.map((entry, index) => [entry.edge.id, index * 26]))
-
-  const edges = graph.edges.map(edge => {
-    if (edge.data?.branch !== "loop-back") {
-      const source = nodesById.get(edge.source)
-      const target = nodesById.get(edge.target)
-      if (!source || !target) return edge
-
-      const exitBranch = source.data.kind === "decision" ? exitBranchOf(edge) : null
-      // 예/아니오는 마름모의 좌우 꼭짓점에서 각자의 방향으로 나갑니다(§2 교과서 표기).
-      const exitSide = exitBranch ? branchSide(exitBranch) : null
-      const sourcePoint = nodeSourcePoint(source, edge.sourceHandle)
-      const targetPoint = nodeTargetPoint(target)
-      const isDirectMerge = exitSide !== null && target.data.kind === "junction"
-      // 빈 갈래는 다음 기호들을 가로지르지 않도록 순서도 바깥 통로로 우회합니다.
-      const laneX = exitSide === "left" ? graphLeft - 34 : graphRight + 34
-      // 그 밖의 갈래는 목적지 열까지 옆으로 나간 뒤 내려갑니다. 목적지가 마름모
-      // 바로 아래에 있으면 도형을 뚫지 않도록 최소한 옆으로 비켜 놓습니다.
-      const turnX =
-        exitSide === "left"
-          ? Math.min(targetPoint.x, sourcePoint.x - 12)
-          : Math.max(targetPoint.x, sourcePoint.x + 12)
-      const middleY = sourcePoint.y + (targetPoint.y - sourcePoint.y) / 2
-      const routePoints = exitSide
-        ? [
-            sourcePoint,
-            { x: isDirectMerge ? laneX : turnX, y: sourcePoint.y },
-            { x: isDirectMerge ? laneX : turnX, y: targetPoint.y - 34 },
-            { x: targetPoint.x, y: targetPoint.y - 34 },
-            targetPoint,
-          ]
-        : [
-            sourcePoint,
-            { x: sourcePoint.x, y: middleY },
-            { x: targetPoint.x, y: middleY },
-            targetPoint,
-          ]
-      return {
-        ...edge,
-        data: { ...edge.data, routePoints },
-      }
-    }
-
-    return {
-      ...edge,
-      data: {
-        ...edge.data,
-        routePoints: loopBackRoute(
-          nodes,
-          edge.source,
-          edge.sourceHandle,
-          edge.target,
-          loopOffsets.get(edge.id),
-        ),
-      },
-    }
-  })
-
-  return {
-    nodes,
-    edges,
-  }
+  // 화살표 경로는 정렬이 끝난 좌표로 계산합니다. 화면에서 기호를 옮길 때도 같은
+  // 함수로 다시 계산하므로(FlowCanvas.replaceGraph) 경로 규칙은 flowEdges.ts 한 곳입니다.
+  return { nodes, edges: routeEdges(nodes, graph.edges) }
 }
 
 /** AST를 React Flow에서 바로 사용할 수 있는 노드와 화살표로 바꿉니다. */
