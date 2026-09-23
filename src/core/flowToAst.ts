@@ -7,7 +7,12 @@ import {
   stripIoLabel,
 } from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
-import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./flowTypes"
+import {
+  isBranchHandle,
+  type AlgorithmFlowEdge,
+  type AlgorithmFlowNode,
+  type BranchHandle,
+} from "./flowTypes"
 import { edgesBySource, edgesByTarget } from "./graphTopology"
 
 export class FlowValidationError extends Error {
@@ -17,8 +22,8 @@ export class FlowValidationError extends Error {
   }
 }
 
-function branchOf(edge: AlgorithmFlowEdge): "yes" | "no" | "next" | "loop-back" {
-  if (edge.sourceHandle === "yes" || edge.sourceHandle === "no") return edge.sourceHandle
+function branchOf(edge: AlgorithmFlowEdge): BranchHandle | "next" | "loop-back" {
+  if (isBranchHandle(edge.sourceHandle)) return edge.sourceHandle
   if (edge.data?.branch) return edge.data.branch
   if (edge.label === "예") return "yes"
   if (edge.label === "아니오") return "no"
@@ -241,7 +246,7 @@ export function flowToAst(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
       }
 
       const nextEdges = outgoing.get(node.id) ?? []
-      if (nextEdges.some(edge => branchOf(edge) === "yes" || branchOf(edge) === "no")) {
+      if (nextEdges.some(edge => isBranchHandle(branchOf(edge)))) {
         throw new FlowValidationError(
           `'${node.data.label}'의 '예/아니오' 화살표는 판단 기호에서만 사용할 수 있어요.`,
         )

@@ -1,6 +1,6 @@
 import { layoutFlowGraph, type BranchGroup } from "./astToFlow"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph } from "./flowTypes"
-import { edgesBySource, reachableFrom } from "./graphTopology"
+import { branchEdge, edgesBySource, reachableFrom } from "./graphTopology"
 
 /**
  * 화면에서 직접 만든 순서도를 자동 배치합니다.
@@ -39,7 +39,7 @@ export function deriveBranchGroups(
     // 갈래를 따라가다 판단 기호로 되돌아오면 멈춥니다(반복 본문).
     const stopAtDecision = new Set([node.id])
     const branches = outgoing.get(node.id) ?? []
-    const yesTarget = branches.find(edge => edge.sourceHandle === "yes")?.target
+    const yesTarget = branchEdge(branches, node.id, "yes")?.target
     if (!yesTarget) return []
 
     const yes = reachableFrom(yesTarget, outgoing, stopAtDecision)
@@ -47,7 +47,7 @@ export function deriveBranchGroups(
       return [{ decisionId: node.id, yes: [...yes], no: [] }]
     }
 
-    const noTarget = branches.find(edge => edge.sourceHandle === "no")?.target
+    const noTarget = branchEdge(branches, node.id, "no")?.target
     if (!noTarget) return []
     const no = reachableFrom(noTarget, outgoing, stopAtDecision)
 

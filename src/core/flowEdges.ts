@@ -1,7 +1,12 @@
 import { MarkerType, type EdgeMarker } from "@xyflow/react"
 import { EDGE_COLOR, LOOP_EDGE_COLOR } from "../constants/flowColors"
 import { branchSide, sizeOf, sourcePoint, targetPoint } from "./nodeGeometry"
-import type { AlgorithmFlowNode, AlgorithmFlowEdge, FlowEdgeData } from "./flowTypes"
+import {
+  isBranchHandle,
+  type AlgorithmFlowNode,
+  type AlgorithmFlowEdge,
+  type FlowEdgeData,
+} from "./flowTypes"
 import type { RoutePoint } from "./edgeGeometry"
 /**
  * 화살촉 크기.
@@ -165,8 +170,7 @@ export function loopBackRoute(
   const end = targetPoint(target)
   const obstacles = nodes.filter(node => node.id !== sourceId && node.id !== targetId).map(rectOf)
 
-  const fromVertex =
-    source.data.kind === "decision" && (sourceHandle === "yes" || sourceHandle === "no")
+  const fromVertex = source.data.kind === "decision" && isBranchHandle(sourceHandle)
   const side = fromVertex ? branchSide(sourceHandle) : "left"
   const laneX = side === "left" ? graphLeft - 46 - laneOffset : graphRight + 46 + laneOffset
 
@@ -212,11 +216,6 @@ export function loopBackRoute(
   return [start, { x: start.x, y: dodgedExitY }, { x: laneX, y: dodgedExitY }, ...tail]
 }
 
-/** 엣지가 어느 꼭짓점에서 나가는지. 갈래가 아니면 아래쪽 가운데입니다. */
-function exitBranchOf(edge: AlgorithmFlowEdge): "yes" | "no" | null {
-  return edge.sourceHandle === "yes" || edge.sourceHandle === "no" ? edge.sourceHandle : null
-}
-
 /**
  * 일반 화살표(다음·예·아니오)의 직각 경로.
  *
@@ -241,7 +240,9 @@ function plainRoute(
   const target = nodes.find(node => node.id === edge.target)
   if (!source || !target) return undefined
 
-  const exitBranch = source.data.kind === "decision" ? exitBranchOf(edge) : null
+  // 판단의 예/아니오만 꼭짓점에서 나갑니다. 나머지는 아래쪽 가운데입니다.
+  const exitBranch =
+    source.data.kind === "decision" && isBranchHandle(edge.sourceHandle) ? edge.sourceHandle : null
   const exitSide = exitBranch ? branchSide(exitBranch) : null
   const start = sourcePoint(source, edge.sourceHandle)
   const end = targetPoint(target)

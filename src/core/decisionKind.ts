@@ -1,6 +1,7 @@
 import { sizeOf } from "./nodeGeometry"
 import { edgeAppearance, loopBackRoute } from "./flowEdges"
 import {
+  branchEdge,
   createJunctionNode,
   edgesBySource,
   findJunction,
@@ -10,7 +11,14 @@ import {
   reachableFrom,
 } from "./graphTopology"
 import { removeNodes } from "./removeNodes"
-import type { AlgorithmFlowEdge, AlgorithmFlowNode, ControlKind, FlowGraph } from "./flowTypes"
+import {
+  isBranchHandle,
+  type AlgorithmFlowEdge,
+  type AlgorithmFlowNode,
+  type BranchHandle,
+  type ControlKind,
+  type FlowGraph,
+} from "./flowTypes"
 
 /**
  * 판단 기호를 조건 분기 ↔ 반복으로 바꿉니다.
@@ -57,8 +65,7 @@ function danglingJunction(graph: FlowGraph, decisionId: string): AlgorithmFlowNo
 }
 
 function asPlainEdge(edge: AlgorithmFlowEdge, target: string): AlgorithmFlowEdge {
-  const exit =
-    edge.sourceHandle === "yes" || edge.sourceHandle === "no" ? edge.sourceHandle : "next"
+  const exit = isBranchHandle(edge.sourceHandle) ? edge.sourceHandle : "next"
   return {
     ...edge,
     target,
@@ -105,14 +112,11 @@ function toIf(graph: FlowGraph, decisionId: string): FlowGraph {
    * 만들지 않습니다.
    */
   const closed = loopBacks.length > 0
-  const noEdge = closed
-    ? graph.edges.find(edge => edge.source === decisionId && edge.sourceHandle === "no")
-    : undefined
+  const noEdge = closed ? branchEdge(graph.edges, decisionId, "no") : undefined
 
   const decision = graph.nodes.find(node => node.id === decisionId)
   const nodesById = new Map(graph.nodes.map(node => [node.id, node]))
-  const branchStart = (handle: "yes" | "no") =>
-    graph.edges.find(edge => edge.source === decisionId && edge.sourceHandle === handle)?.target
+  const branchStart = (handle: BranchHandle) => branchEdge(graph.edges, decisionId, handle)?.target
   // 합류점은 갈래 본문 아래에 둡니다. 닫히지 않은 반복은 아니오 쪽도 갈래일 수 있습니다.
   const outgoing = edgesBySource(graph.edges)
   const stopAtDecision = new Set([decisionId])

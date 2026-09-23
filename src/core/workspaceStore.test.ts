@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { examples } from "../examples"
 import { astToFlow } from "./astToFlow"
+import { astToText } from "./astToText"
 import type { AlgorithmFlowNode } from "./flowTypes"
 import { parseWorkspace, serializeWorkspace, type Workspace } from "./workspaceStore"
 
@@ -15,8 +16,9 @@ describe("작업 내용 저장", () => {
 
   it("순서도와 의사코드를 손실 없이 담았다가 되돌린다", () => {
     const graph = astToFlow(examples[0].program)
+    // 앱은 AST를 바꿀 때 글도 함께 맞추므로(useAppStore.setProgram) 둘은 짝이 맞습니다.
     const workspace: Workspace = {
-      code: "시작\n끝",
+      code: astToText(examples[0].program),
       program: examples[0].program,
       source: "example",
       nodes: graph.nodes,
@@ -157,5 +159,33 @@ describe("작업 내용 저장", () => {
       edge => edge.source === decision.id && edge.sourceHandle === "no",
     )
     expect(noEdge?.data?.routePoints?.length).toBeGreaterThan(1)
+  })
+
+  describe("저장해 둔 AST", () => {
+    const raw = (code: string, program: unknown) =>
+      JSON.stringify({ version: 1, code, program, source: "text", nodes: [], edges: [] })
+
+    it("글이 문법에 맞으면 글에서 다시 만든다", () => {
+      // 글을 고친 직후 의사코드 반영을 기다리는 동안 창을 닫으면 AST가 한 걸음 뒤처집니다.
+      const restored = parseWorkspace(raw("시작\n  입력: 수\n끝", { body: [] }))
+      expect(restored?.program).toEqual({ body: [{ type: "input", variable: "수" }] })
+    })
+
+    it("글에 문법 오류가 있으면 마지막으로 올바랐던 AST를 쓴다", () => {
+      const program = { body: [{ type: "output", expr: "합계" }] }
+      expect(parseWorkspace(raw("시작\n  [만약", program))?.program).toEqual(program)
+    })
+
+    it("글도 틀리고 AST 모양도 어긋나면 되살리지 않는다", () => {
+      expect(parseWorkspace(raw("시작\n  [만약", { body: [{ type: "모름" }] }))).toBeNull()
+      expect(
+        parseWorkspace(raw("시작\n  [만약", { body: [{ type: "loop", condition: "c" }] })),
+      ).toBeNull()
+    })
+
+    it("AST 모양이 어긋나도 글이 맞으면 글에서 되살린다", () => {
+      const restored = parseWorkspace(raw("시작\n  출력: 합계\n끝", { body: "손상" }))
+      expect(restored?.program).toEqual({ body: [{ type: "output", expr: "합계" }] })
+    })
   })
 })

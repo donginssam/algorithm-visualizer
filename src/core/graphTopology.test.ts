@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isLoopBackConnection } from "./graphTopology"
+import { canConnect, isLoopBackConnection } from "./graphTopology"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph } from "./flowTypes"
 
 /**
@@ -62,5 +62,76 @@ describe("복귀선 판정", () => {
       edges: [edge("yes", "판단", "본문", "yes")],
     }
     expect(isLoopBackConnection(ifGraph, "본문", "판단")).toBe(false)
+  })
+})
+
+describe("연결 허용 규칙", () => {
+  const terminal = (id: string, terminalRole: "start" | "end") =>
+    ({
+      id,
+      type: "terminal",
+      position: { x: 0, y: 0 },
+      data: { kind: "terminal", label: id, terminalRole },
+    }) satisfies AlgorithmFlowNode
+
+  const graph: FlowGraph = {
+    nodes: [
+      terminal("start", "start"),
+      terminal("end", "end"),
+      node("a", "process"),
+      node("b", "process"),
+      node("if", "decision"),
+      node("join", "junction"),
+      node("loop", "decision", true),
+    ],
+    edges: [],
+  }
+  const withEdges = (...edges: AlgorithmFlowEdge[]): FlowGraph => ({ ...graph, edges })
+
+  it("평범한 두 기호는 잇는다", () => {
+    expect(canConnect(graph, { source: "a", target: "b" })).toBe(true)
+  })
+
+  it("없는 기호나 자기 자신으로는 잇지 않는다", () => {
+    expect(canConnect(graph, { source: "a", target: "없음" })).toBe(false)
+    expect(canConnect(graph, { source: "a", target: "a" })).toBe(false)
+  })
+
+  it("끝에서 나가거나 시작으로 들어올 수 없다", () => {
+    expect(canConnect(graph, { source: "end", target: "a" })).toBe(false)
+    expect(canConnect(graph, { source: "a", target: "start" })).toBe(false)
+  })
+
+  it("한 연결점에서는 화살표가 하나만 나간다", () => {
+    const used = withEdges(edge("e1", "a", "b"))
+    expect(canConnect(used, { source: "a", target: "end", sourceHandle: "next" })).toBe(false)
+    // 연결점을 적지 않은 화살표도 '다음' 연결점으로 셉니다.
+    expect(canConnect(used, { source: "a", target: "end" })).toBe(false)
+  })
+
+  it("판단은 예와 아니오를 따로 센다", () => {
+    const yesUsed = withEdges(edge("e1", "if", "a", "yes"))
+    expect(canConnect(yesUsed, { source: "if", target: "b", sourceHandle: "yes" })).toBe(false)
+    expect(canConnect(yesUsed, { source: "if", target: "b", sourceHandle: "no" })).toBe(true)
+  })
+
+  it("보통 기호는 들어오는 화살표를 하나만 받는다", () => {
+    const taken = withEdges(edge("e1", "a", "b"))
+    expect(canConnect(taken, { source: "if", target: "b", sourceHandle: "yes" })).toBe(false)
+  })
+
+  it("합류점과 반복 판단은 들어오는 화살표를 둘까지 받는다", () => {
+    const oneIn = withEdges(edge("e1", "a", "join"), edge("e2", "a", "loop", "yes"))
+    expect(canConnect(oneIn, { source: "b", target: "join" })).toBe(true)
+    expect(canConnect(oneIn, { source: "b", target: "loop" })).toBe(true)
+
+    const twoIn = withEdges(
+      edge("e1", "a", "join"),
+      edge("e2", "b", "join"),
+      edge("e3", "a", "loop", "yes"),
+      edge("e4", "b", "loop", "yes"),
+    )
+    expect(canConnect(twoIn, { source: "start", target: "join" })).toBe(false)
+    expect(canConnect(twoIn, { source: "start", target: "loop" })).toBe(false)
   })
 })

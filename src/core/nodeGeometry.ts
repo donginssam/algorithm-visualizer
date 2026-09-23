@@ -1,4 +1,10 @@
-import type { AlgorithmFlowNode, FlowNodeData, DecisionSide } from "./flowTypes"
+import {
+  isBranchHandle,
+  type AlgorithmFlowNode,
+  type BranchHandle,
+  type DecisionSide,
+  type FlowNodeData,
+} from "./flowTypes"
 import type { RoutePoint } from "./edgeGeometry"
 /** 도형 크기. styles/index.scss의 .flow-shape 계열 규칙과 반드시 같아야 합니다. */
 export const NODE_SIZES: Record<FlowNodeData["kind"], { width: number; height: number }> = {
@@ -33,7 +39,7 @@ function oppositeSide(side: DecisionSide): DecisionSide {
 export const YES_SIDE: DecisionSide = "left"
 
 /** 갈래가 마름모에서 나가는 쪽. */
-export function branchSide(branch: "yes" | "no"): DecisionSide {
+export function branchSide(branch: BranchHandle): DecisionSide {
   return branch === "yes" ? YES_SIDE : oppositeSide(YES_SIDE)
 }
 
@@ -51,7 +57,7 @@ export function sourcePoint(
   handle: string | null | undefined,
 ): RoutePoint {
   const { width, height } = sizeOf(node)
-  if (node.data.kind === "decision" && (handle === "yes" || handle === "no")) {
+  if (node.data.kind === "decision" && isBranchHandle(handle)) {
     const side = branchSide(handle)
     return {
       x: side === "left" ? node.position.x : node.position.x + width,

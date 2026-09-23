@@ -1,4 +1,4 @@
-import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph } from "./flowTypes"
+import type { AlgorithmFlowEdge, AlgorithmFlowNode, BranchHandle, FlowGraph } from "./flowTypes"
 import { NODE_SIZES, RANK_GAP, sizeOf } from "./nodeGeometry"
 
 export const junctionIdOf = (decisionId: string) => `${decisionId}-junction`
@@ -64,6 +64,21 @@ function groupEdges(
 }
 
 /**
+ * 판단 기호의 갈래(예/아니오) 화살표.
+ *
+ * 연결점(`sourceHandle`)으로 찾습니다. 반복 본문이 또 다른 반복으로 끝나면 안쪽
+ * 판단의 '아니오'에서 나가는 선이 복귀선(`branch: "loop-back"`)이 되는데, 그래도
+ * 나가는 자리는 여전히 '아니오'이기 때문입니다. 아직 잇지 않았으면 undefined입니다.
+ */
+export function branchEdge(
+  edges: AlgorithmFlowEdge[],
+  decisionId: string,
+  handle: BranchHandle,
+): AlgorithmFlowEdge | undefined {
+  return edges.find(edge => edge.source === decisionId && edge.sourceHandle === handle)
+}
+
+/**
  * start에서 화살표를 따라 닿는 기호들.
  *
  * `stop`에 든 기호에서 멈추고 그 기호는 넣지 않습니다. 판단 기호를 stop으로 두면
@@ -114,14 +129,51 @@ export function isLoopBackConnection(
   return graph.edges.some(edge => edge.target === targetId && !fromTarget.has(edge.source))
 }
 
+/** 학생이 캔버스에서 잇으려는 화살표. React Flow의 `Connection`과 `Edge`가 모두 들어맞습니다. */
+export interface ConnectionRequest {
+  source: string
+  target: string
+  sourceHandle?: string | null
+}
+
+/**
+ * 이 화살표를 이어도 되는지.
+ *
+ * 끌어서 놓는 동안 계속 불리므로, 여기서 막으면 연결점이 아예 반응하지 않습니다.
+ * 의사코드로 되돌릴 수 없는 모양을 그리는 도중에 알려 주는 것보다, 처음부터 못
+ * 잇게 하는 편이 학생에게 덜 헷갈립니다. 흐름이 완성됐는지까지는 보지 않습니다
+ * (그것은 flowToAst.ts의 검증이 알려 줍니다).
+ *
+ * - 자기 자신으로는 잇지 않습니다.
+ * - '끝'에서는 나갈 수 없고 '시작'으로는 들어올 수 없습니다.
+ * - 한 연결점에서는 화살표가 하나만 나갑니다(판단은 예·아니오 각각 하나).
+ * - 들어오는 화살표는 하나입니다. 두 갈래가 만나는 합류점과, 들어오는 선과 복귀선을
+ *   함께 받는 반복 판단만 둘까지 받습니다.
+ */
+export function canConnect(graph: FlowGraph, connection: ConnectionRequest): boolean {
+  const source = graph.nodes.find(node => node.id === connection.source)
+  const target = graph.nodes.find(node => node.id === connection.target)
+  if (!source || !target || connection.source === connection.target) return false
+  if (source.data.terminalRole === "end" || target.data.terminalRole === "start") return false
+
+  const sourceHandle = connection.sourceHandle ?? "next"
+  const sourceAlreadyConnected = graph.edges.some(
+    edge => edge.source === connection.source && (edge.sourceHandle ?? "next") === sourceHandle,
+  )
+  if (sourceAlreadyConnected) return false
+
+  const incomingCount = graph.edges.filter(edge => edge.target === connection.target).length
+  const maximumIncoming =
+    target.data.kind === "junction" || target.data.controlKind === "loop" ? 2 : 1
+  return incomingCount < maximumIncoming
+}
+
 /** 두 갈래가 처음 만나는 기호가 합류점일 때만 반환합니다. 후속 판단의 합류점은 소유하지 않습니다. */
 export function findJunction(graph: FlowGraph, decisionId: string): string | undefined {
   const forward = graph.edges.filter(edge => edge.data?.branch !== "loop-back")
   const outgoing = edgesBySource(forward)
-  const distances = (handle: string) => {
-    const start = forward.find(
-      edge => edge.source === decisionId && edge.sourceHandle === handle,
-    )?.target
+  const distances = (handle: BranchHandle) => {
+    const start = branchEdge(forward, decisionId, handle)?.target
     const result = new Map<string, number>()
     const queue: Array<[string, number]> = start ? [[start, 0]] : []
     for (let index = 0; index < queue.length; index++) {

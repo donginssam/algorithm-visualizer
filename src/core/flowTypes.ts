@@ -11,6 +11,14 @@ export type ControlKind = "if" | "loop"
  */
 export type DecisionSide = "left" | "right"
 
+/** 판단 기호의 두 갈래 연결점. */
+export type BranchHandle = "yes" | "no"
+
+/** 연결점이 판단의 갈래(예/아니오)인지. 아니면 아래쪽 가운데의 '다음' 연결점입니다. */
+export function isBranchHandle(handle: string | null | undefined): handle is BranchHandle {
+  return handle === "yes" || handle === "no"
+}
+
 export interface FlowNodeData extends Record<string, unknown> {
   label: string
   kind: FlowNodeKind
@@ -19,7 +27,7 @@ export interface FlowNodeData extends Record<string, unknown> {
 }
 
 export interface FlowEdgeData extends Record<string, unknown> {
-  branch?: "yes" | "no" | "next" | "loop-back"
+  branch?: BranchHandle | "next" | "loop-back"
   /** 자동 배치기가 계산한 기호 회피 경로(순서도 좌표계). */
   routePoints?: Array<{ x: number; y: number }>
 }

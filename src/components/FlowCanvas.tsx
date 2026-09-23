@@ -35,12 +35,18 @@ import { flowToAst, FlowValidationError } from "../core/flowToAst"
 import { exportGraphAsPng } from "../core/exportPng"
 import { graphBounds } from "../core/flowToSvg"
 import { cloneFlowGraph, GraphHistory } from "../core/graphHistory"
-import { createJunctionNode, isLoopBackConnection, junctionPosition } from "../core/graphTopology"
-import type {
-  AlgorithmFlowEdge,
-  AlgorithmFlowNode,
-  FlowGraph,
-  TerminalRole,
+import {
+  canConnect,
+  createJunctionNode,
+  isLoopBackConnection,
+  junctionPosition,
+} from "../core/graphTopology"
+import {
+  isBranchHandle,
+  type AlgorithmFlowEdge,
+  type AlgorithmFlowNode,
+  type FlowGraph,
+  type TerminalRole,
 } from "../core/flowTypes"
 import type { ProgramSource } from "../store/useAppStore"
 import type { PaletteItemKind } from "./Palette"
@@ -467,7 +473,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     )
     const branch = isLoopBack
       ? "loop-back"
-      : connection.sourceHandle === "yes" || connection.sourceHandle === "no"
+      : isBranchHandle(connection.sourceHandle)
         ? connection.sourceHandle
         : "next"
     const routePoints =
@@ -641,34 +647,9 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
             onConnect={handleConnect}
             onPaneClick={handlePaneClick}
             onNodeDoubleClick={(_, node) => openEditor(node.id)}
-            isValidConnection={connection => {
-              const sourceNode = nodesRef.current.find(node => node.id === connection.source)
-              const targetNode = nodesRef.current.find(node => node.id === connection.target)
-              if (!sourceNode || !targetNode || connection.source === connection.target)
-                return false
-              if (
-                sourceNode.data.terminalRole === "end" ||
-                targetNode.data.terminalRole === "start"
-              )
-                return false
-
-              const sourceHandle = connection.sourceHandle ?? "next"
-              const sourceAlreadyConnected = edgesRef.current.some(
-                edge =>
-                  edge.source === connection.source &&
-                  (edge.sourceHandle ?? "next") === sourceHandle,
-              )
-              if (sourceAlreadyConnected) return false
-
-              const incomingCount = edgesRef.current.filter(
-                edge => edge.target === connection.target,
-              ).length
-              const maximumIncoming =
-                targetNode.data.kind === "junction" || targetNode.data.controlKind === "loop"
-                  ? 2
-                  : 1
-              return incomingCount < maximumIncoming
-            }}
+            isValidConnection={connection =>
+              canConnect({ nodes: nodesRef.current, edges: edgesRef.current }, connection)
+            }
             minZoom={MIN_ZOOM}
             maxZoom={MAX_ZOOM}
             panOnDrag

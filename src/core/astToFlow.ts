@@ -1,15 +1,16 @@
 import { RANK_GAP, sizeOf } from "./nodeGeometry"
 import { edgeAppearance, routeEdges } from "./flowEdges"
-import { createJunctionNode, junctionIdOf } from "./graphTopology"
+import { branchEdge, createJunctionNode, junctionIdOf } from "./graphTopology"
 import dagre from "@dagrejs/dagre"
 import { ASSIGN_GLYPH, INPUT_PREFIX, OUTPUT_PREFIX } from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
-import type {
-  AlgorithmFlowEdge,
-  AlgorithmFlowNode,
-  FlowEdgeData,
-  FlowGraph,
-  FlowNodeData,
+import {
+  isBranchHandle,
+  type AlgorithmFlowEdge,
+  type AlgorithmFlowNode,
+  type FlowEdgeData,
+  type FlowGraph,
+  type FlowNodeData,
 } from "./flowTypes"
 
 function flowNode(
@@ -76,12 +77,8 @@ function normalizeBranchSides(
     (a, b) => positions.get(a.decisionId)!.y - positions.get(b.decisionId)!.y,
   )
   for (const group of ordered) {
-    const yes = edges.find(
-      edge => edge.source === group.decisionId && edge.sourceHandle === "yes",
-    )?.target
-    const no = edges.find(
-      edge => edge.source === group.decisionId && edge.sourceHandle === "no",
-    )?.target
+    const yes = branchEdge(edges, group.decisionId, "yes")?.target
+    const no = branchEdge(edges, group.decisionId, "no")?.target
     if (!yes || !no) continue
     const axis = centerX(group.decisionId)
     if (centerX(yes) > centerX(no)) {
@@ -213,7 +210,7 @@ export function astToFlow(program: Program): FlowGraph {
     branch: FlowEdgeData["branch"] = "next",
     exit: FlowEdgeData["branch"] = branch,
   ) => {
-    const isBranch = exit === "yes" || exit === "no"
+    const isBranch = isBranchHandle(exit)
     edges.push({
       id: `edge-${edgeSequence++}`,
       source,
