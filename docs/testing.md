@@ -146,6 +146,35 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 - 아직 잇지 않은 기호를 지우지 않고 함께 배치함
 - 연결이 끊긴 판단 기호에서도 실패하지 않음
 
+### `plugins/privacyPage.test.ts`
+
+`docs/privacy.md`를 실제 템플릿으로 그려 개인정보보호위원회 「개인정보 처리방침 작성지침」(2026. 4.) 기준을 검사합니다.
+
+- 조마다 번호와 같은 `article-N` 앵커가 1부터 빠짐없이 붙음
+- 법정 기재사항(처리 목적·항목·보유 기간·파기·제3자 제공·위탁·안전성 확보조치·자동 수집 장치·권리 행사·보호책임자·변경)이 각각 조로 나뉨
+- 제목·서문·목차·본문 순서이고 목차가 모든 조로 이어지며, 본문의 조 참조 링크가 실제 앵커를 가리킴
+- 제16조의 시행일이 머리말(`effective`)과 같고, 템플릿 자리표시자·편집자 주석·Markdown 문법이 새지 않음
+- 모든 표가 가로 스크롤 상자로 감싸짐
+- 채우지 않은 값(`__NAME__` 등)을 찾아냄 — 남아 있으면 `pnpm build`가 경고를 냅니다
+
+### `plugins/licensePage.test.ts`
+
+`docs/licenses.md`에 실제 설치된 패키지로 만든 표를 넣어 그리고, 목록을 모으는 규칙(`plugins/thirdPartyLicenses.ts`)을 검사합니다.
+
+- 직접 쓰는 의존성과 그 하위 의존성, service worker에 들어가는 workbox 런타임을 모두 담음 — 다른 패키지의 배포 파일에 통째로 들어간 것(`@dagrejs/graphlib`)과 같은 패키지의 다른 버전(zustand v4·v5)의 하위 의존성까지 포함
+- 타입 선언(`@types/*`)과 빌드 도구는 담지 않음
+- 번들에 실렸는데 목록에 없는 패키지를 찾아냄 — `pnpm build`는 이런 패키지가 있으면 멈춥니다
+- 원문의 저작권 표시에서 연도·`Copyright (c)`·이메일을 뺀 저작권자만 표에 싣고, 본문의 "Copyright Holder" 같은 말은 저작권 표시로 읽지 않음
+- 목록의 모든 패키지가 표에 있고, 묶음마다 원문 txt 링크와 저작권자가 있으며, MIT가 아닌 라이선스(ISC·BSD-3-Clause·OFL-1.1)도 실림
+- 글꼴 원문은 저장소의 `public/licenses/pretendard-OFL.txt`로 링크함
+- 같은 패키지의 버전별 원문이 다르면 서로 다른 해시 파일명으로 배포하고, 동일 원문은 공유함
+
+### `plugins/legalPage.test.ts` · `plugins/licenseInventory.test.ts`
+
+- 머리말의 LF·CRLF, 값 안의 콜론, 필수 항목 누락·잘못된 항목·빈 값·중복 키 처리
+- 일반 앱 요청에서는 라이선스 원문 수집을 하지 않고, 고지 페이지·원문 요청의 base와 쿼리 처리
+- 수집 결과 재사용, 잠금 파일·원문 변경 감지 및 빌드 시작 시 스냅샷 초기화
+
 ## 변경 유형별 점검
 
 ### 브랜드 마크 변경
@@ -236,7 +265,7 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 2. Application → Manifest에 **아무 경고도 없고** 주소창에 설치 버튼이 나타납니다. 아이콘과 갈무리는 이 화면에서만 실제로 불려 오므로, CDP의 `Page.getAppManifest`가 `errors: []`를 돌려주는 것은 근거가 되지 않습니다(그 명령은 파싱만 합니다). 아이콘을 SVG로 두면 여기서 `Icon … failed to load`가 납니다.
 3. Application → Cache Storage의 precache 목록에 vendor chunk와 함께 **`ExamplesPage-*.js`가 들어 있습니다.** 예제 화면에 들어간 적이 없어도 있어야 합니다. 없으면 오프라인에서 예제 화면이 빕니다.
 4. Network를 Offline으로 두고 강력 새로 고침해도 편집기·순서도·팔레트가 뜨고, 기호 추가와 연결, `#/examples`, `이미지로 저장`, 저장한 작업 복원이 모두 동작합니다.
-5. 오프라인에서 한글이 시스템 글꼴로 자연스럽게 나옵니다. 이때 Pretendard subset 요청 실패 오류가 콘솔에 뜨는 것은 의도한 동작입니다. CDN의 CSS는 브라우저 HTTP 캐시에 남아 있어 `@font-face` 규칙은 살아 있고, 화면에 그려진 글자의 subset 수만큼 요청이 실패하므로 개수는 그때그때 다릅니다. 위 [14번](#브라우저-수동-회귀-점검)의 "콘솔 오류 없음"은 온라인 기준입니다.
+5. 오프라인에서도 한글이 Pretendard로 나오는지 확인합니다. 새 한글 문장도 입력해 봅니다. 네트워크 기록에 외부 글꼴 CDN 요청이 없어야 하며, `assets/PretendardVariable-<hash>.woff2`는 앱과 같은 출처에서 제공되고 service worker 캐시에 포함되어야 합니다. 글꼴 요청 실패는 정상 동작으로 취급하지 않습니다.
 6. 오프라인에서 쿼리가 붙은 주소(`…/algorithm-visualizer/?from=lms`)로 들어가도 앱이 그대로 뜹니다. 이 경로만 `navigateFallback`을 씁니다.
 7. 소스를 고쳐 다시 빌드하면 열려 있던 창에 새 버전 대화상자가 뜨고, `나중에`는 편집을 그대로 이어 가며 `지금 새로 고침`은 만들던 순서도를 위치까지 유지한 채 새 코드로 바뀝니다.
 
@@ -281,12 +310,14 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 | 갈래 좌우 정렬   | `astToFlow`가 적는 `BranchGroup`, `autoLayout`의 `deriveBranchGroups`, `normalizeBranchSides`                                             |
 | 배포 경로        | `vite.config.ts`의 `base`, `constants/pwa.ts`의 `PAGES_BASE`, manifest `scope`·`start_url`, service worker scope, 저장소 이름, Pages 설정 |
 | 앱 테마색        | `index.html`의 `theme-color`, manifest `theme_color`, `_tokens.scss`의 `--surface-page`                                                   |
+| 처리방침         | `docs/privacy.md` 본문, `workspaceStore`의 저장 항목, service worker 캐시, 자체 호스팅 글꼴                                               |
+| 라이선스 고지    | `package.json` 의존성, `thirdPartyLicenses.ts`의 workbox 런타임 시작점과 원문 예외 목록, `public/licenses/`, `workbox.globPatterns`       |
 | chunk 구성       | `React.lazy` 경계, `manualChunks` 목록, `workbox.globPatterns`, `package.json` 의존성                                                     |
 
 ## 알려진 제한과 후속 작업
 
 - 자동 저장은 브라우저마다 한 벌만 보관하며, 여러 작업을 이름 붙여 저장할 수는 없습니다.
-- 오프라인에서는 본문 글꼴이 Pretendard 대신 시스템 한글 글꼴로 바뀝니다.
+- 글꼴 로드 실패 시 시스템 한글 글꼴로 대체됩니다. 정상적으로 캐시가 준비된 오프라인 환경에서는 Pretendard를 유지합니다.
 - 자유로운 한국어 조건식은 평가하지 않으므로 실행 애니메이션이 없습니다.
 - 휴대폰과 태블릿 세로 모드는 지원하지 않습니다.
 - 노드가 매우 많을 때의 자동 배치는 실제 수업 사례를 모아 추가로 다듬을 필요가 있습니다.

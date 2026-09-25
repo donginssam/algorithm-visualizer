@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 import type { FlowCanvasHandle } from "./components/FlowCanvas"
+import { LegalLinks } from "./components/LegalLinks"
 import { ModalDialog } from "./components/ModalDialog"
 import type { PaletteItemKind } from "./components/Palette"
 import { UpdatePrompt } from "./components/UpdatePrompt"
@@ -305,6 +306,11 @@ export default function App() {
           </p>
         </ModalDialog>
       )}
+
+      {/* 두 화면이 함께 쓰는 맨 아래 줄. 편집 영역(flex: 1)이 이 높이만큼 줄어듭니다. */}
+      <footer className="app-footer">
+        <LegalLinks />
+      </footer>
 
       <UpdatePrompt onBeforeRefresh={saveNow} />
     </main>

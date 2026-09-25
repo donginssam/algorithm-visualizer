@@ -100,7 +100,7 @@ interface Program {
 - 지연 불러오는 chunk도 **요청이 아니라 glob으로** 담기므로, 예제 화면에 한 번도 들어가지 않았어도 `ExamplesPage` chunk가 캐시에 들어갑니다. 오프라인에서 예제 화면이 비지 않는 이유입니다.
 - 화면 전환이 URL 해시라 문서는 `index.html` 하나뿐이고, 보통은 precache가 그대로 맞습니다. `navigateFallback`은 주소에 쿼리가 붙어(예: LMS 링크의 `?from=…`) precache와 어긋나는 경우를 받습니다.
 - 이 앱은 알고리즘을 실행하지도, 서버에 무엇을 보내지도 않으므로 **오프라인에서 기능이 하나도 줄지 않습니다.** 편집·자동 저장·이미지 저장이 모두 그대로 동작합니다.
-- 예외는 본문 한글 글꼴입니다. Pretendard는 CDN에서 받고 따로 캐시하지 않으므로 오프라인에서는 시스템 한글 글꼴로 대체됩니다. `dynamic-subset`은 unicode-range로 쪼개진 파일 묶음이라 일부만 캐시되면 한 문장 안에서 글꼴이 섞입니다. 전부 대체되는 편이 낫습니다.
+- 본문 한글 글꼴은 공식 `pretendard` 패키지의 전체 가변 WOFF2를 `src/main.tsx`에서 불러와 자체 호스팅합니다. Vite가 해시를 붙여 배포하며 약 2 MB의 글꼴을 precache에 포함합니다. 별도의 외부 글꼴 CDN 요청은 없습니다. 라이선스는 `public/licenses/pretendard-OFL.txt`로 배포합니다. 관리 방법은 [글꼴 안내](fonts.md)를 참고합니다.
 
 ### 새 버전 적용
 

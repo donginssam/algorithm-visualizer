@@ -137,9 +137,23 @@ h2 {
   flex-direction: column;
   margin: 0 auto;
   padding: 18px;
+  /*
+   * 위쪽 여백을 줄여 맨 아래 .app-footer(44px) 자리를 만듭니다. 편집 영역은 이미
+   * 내용물 최소 높이라 더 줄지 않으므로, 1366×768에서 세로 스크롤이 생기지 않게
+   * 하려면 여백에서 빼야 합니다.
+   */
+  padding-top: max(8px, env(safe-area-inset-top));
   padding-right: max(18px, env(safe-area-inset-right));
-  padding-bottom: max(18px, env(safe-area-inset-bottom));
+  /* 맨 아래 여백은 .app-footer가 대신 채웁니다. */
+  padding-bottom: env(safe-area-inset-bottom);
   padding-left: max(18px, env(safe-area-inset-left));
+}
+
+.app-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: 0 var(--space-2);
 }
 
 .topbar {
@@ -929,6 +943,28 @@ h2 {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.5;
+}
+
+/*
+ * 맨 아래 줄의 고지 링크(개인정보 처리방침, 오픈소스 라이선스).
+ *
+ * 앱의 다른 요소보다 두드러지지 않도록 회색 굵은 글씨를 씁니다. 두 링크는 같은
+ * 스타일을 씁니다. 누르는 높이는 다른 버튼과 같은 44px입니다.
+ */
+.legal-link {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  min-height: var(--touch-min);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+
+  &:hover {
+    color: var(--text-strong);
+  }
 }
 
 .palette-items {

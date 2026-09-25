@@ -13,6 +13,8 @@
 | [순서도 변환과 렌더링](./flowchart.md)             | AST↔그래프 변환, 자동 배치, 검증, 화살표, PNG 저장            | 순서도 기호·연결·배치를 수정할 때  |
 | [UI와 터치 입력](./ui-touch.md)                    | 화면 구조, 마우스·터치 조작, 접근성, 크롬북 제약              | 컴포넌트나 CSS를 수정할 때         |
 | [테스트와 유지보수](./testing.md)                  | 자동 테스트, 수동 점검표, 자동 배포, 결합된 상수, 알려진 제한 | 변경을 검증하거나 배포를 준비할 때 |
+| [개인정보 처리방침](./privacy.md)                  | 처리방침 정본, 빌드 때 `legal/privacy_policy.html`로 출력     | 저장·전송하는 데이터가 바뀔 때     |
+| [오픈소스 라이선스](./licenses.md)                 | 고지 정본, 빌드 때 `legal/open_source_licenses.html`로 출력   | 의존성을 더하거나 뺄 때            |
 | [구현 단계 기록](./milestones/README.md)           | 1~8단계 목표, 구현 내용, 산출물과 완료 기준                   | 구현 순서와 변경 배경을 추적할 때  |
 
 ## 권장 읽기 순서
@@ -50,5 +52,6 @@
 - 편집 화면 조립과 지연 불러오기 경계: [`src/components/EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx)
 - 빌드·chunk 분할·service worker 설정: [`vite.config.ts`](../vite.config.ts)
 - 설치 manifest와 배포 경로: [`src/constants/pwa.ts`](../src/constants/pwa.ts)
+- 법적 고지 페이지 생성: [`plugins/legalPage.ts`](../plugins/legalPage.ts)
 - 배포 워크플로: [`.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml)
 - 단계별 구현 기록: [`docs/milestones/`](./milestones/README.md)

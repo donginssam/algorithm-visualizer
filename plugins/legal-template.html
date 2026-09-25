@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{title}}</title>
+    <link rel="icon" href="../icon.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --ink: #16203a;
+        --ink-soft: #3d4a66;
+        --ink-faint: #64708a;
+        --surface: #ffffff;
+        --canvas: #eef2fa;
+        --line: #dbe2f0;
+        --brand: #3f6ae1;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #e5e7eb;
+          --ink-soft: #cbd5e1;
+          --ink-faint: #94a3b8;
+          --surface: #111827;
+          --canvas: #0b1120;
+          --line: #1f2937;
+          --brand: #a5b4fc;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 2.5rem 1.25rem 5rem;
+        background: var(--canvas);
+        color: var(--ink);
+        /* 외부 글꼴을 따로 불러오지 않습니다. 이 문서는 인쇄되기도 합니다. */
+        font-family:
+          "Pretendard Variable",
+          Pretendard,
+          -apple-system,
+          "Apple SD Gothic Neo",
+          "Malgun Gothic",
+          sans-serif;
+        font-size: 1rem;
+        line-height: 1.75;
+        word-break: keep-all;
+        overflow-wrap: break-word;
+      }
+
+      main {
+        max-width: 46rem;
+        margin: 0 auto;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 1rem;
+        padding: 2.5rem 2rem;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        line-height: 1.4;
+        margin: 0 0 0.5rem;
+      }
+
+      h2 {
+        font-size: 1.125rem;
+        margin: 2.5rem 0 0.75rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--line);
+      }
+
+      p,
+      li {
+        color: var(--ink-soft);
+        margin: 0.75rem 0;
+      }
+
+      ul {
+        padding-left: 1.25rem;
+      }
+
+      strong {
+        color: var(--ink);
+      }
+
+      a {
+        color: var(--brand);
+      }
+
+      code {
+        font-size: 0.9em;
+        overflow-wrap: anywhere;
+      }
+
+      .lead {
+        color: var(--ink-faint);
+        margin-bottom: 2rem;
+      }
+
+      blockquote {
+        margin: 1.5rem 0 0;
+        background: var(--canvas);
+        border: 1px solid var(--line);
+        border-radius: 0.75rem;
+        padding: 1rem 1.25rem;
+      }
+
+      blockquote p {
+        margin: 0.4rem 0;
+      }
+
+      /* 작성지침이 권하는 목차. 누르면 해당 조로 이동합니다. */
+      .toc {
+        margin: 2rem 0 0;
+      }
+
+      .toc ol {
+        margin: 0;
+        padding-left: 1.25rem;
+        columns: 2 18rem;
+        column-gap: 2rem;
+      }
+
+      .toc li {
+        margin: 0.25rem 0;
+        break-inside: avoid;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+      }
+
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        vertical-align: top;
+        color: var(--ink-soft);
+      }
+
+      th {
+        background: var(--canvas);
+        color: var(--ink);
+        font-weight: 700;
+      }
+
+      footer {
+        max-width: 46rem;
+        margin: 1.5rem auto 0;
+        color: var(--ink-faint);
+        font-size: 0.95rem;
+      }
+
+      @media print {
+        body {
+          background: #fff;
+          color: #000;
+          padding: 0;
+        }
+
+        main {
+          border: 0;
+          padding: 0;
+          max-width: none;
+        }
+
+        footer {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>{{title}}</h1>
+      <p class="lead">{{lead}}</p>
+      {{content}}
+    </main>
+
+    <footer>
+      <a href="../">앱으로 돌아가기</a>
+    </footer>
+  </body>
+</html>
