@@ -16,7 +16,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # CI를 이 워크플로의 job으로 호출한다. needs가 배포를 CI 성공에 고정하므로,
+  # 검사와 배포가 같은 커밋 위에서 순서대로 일어난다.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   deploy:
+    needs: ci
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -36,9 +42,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Test
-        run: pnpm test
 
       - name: Build
         run: pnpm build

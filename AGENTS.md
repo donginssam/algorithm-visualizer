@@ -3,4 +3,4 @@
 ## Dev environment tips
 
 - package.json for available pnpm commands for this project.
-- Always use Context7 when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.
+- When a task depends on a third-party library's API, setup, or configuration, look it up with Context7 without waiting to be asked — the installed versions (see package.json) may be newer than what you remember.

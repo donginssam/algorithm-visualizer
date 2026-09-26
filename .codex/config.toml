@@ -1,13 +1,16 @@
 approval_policy = "on-request"
-sandbox_mode = "workspace-write"
+approvals_reviewer = "auto_review"
+default_permissions = "workspace"
 allow_login_shell = false
 
-[sandbox_workspace_write]
-network_access = true
+[permissions.workspace]
+extends = ":workspace"
 
-default_permissions = ":workspace"
-[permissions.workspace.filesystem]
-":project_roots" = { "." = "write", "./.env" = "none" }
+[permissions.workspace.filesystem.":workspace_roots"]
+".env" = "deny"
+
+[permissions.workspace.network]
+enabled = true
 
 [mcp_servers.context7]
 url = "https://mcp.context7.com/mcp"

@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  # main 푸시는 deploy 워크플로가 이 파일을 job으로 호출하므로 여기서 제외한다.
+  # 그래야 배포 커밋도 검사되면서 같은 커밋을 두 번 돌리지 않는다.
+  push:
+    branches-ignore: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    # 같은 저장소의 브랜치는 push 이벤트로 이미 검사하므로, pull_request는
+    # 포크에서 온 것만 실행해 같은 커밋을 두 번 돌리지 않는다.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
