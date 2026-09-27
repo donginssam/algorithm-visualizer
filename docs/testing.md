@@ -231,7 +231,8 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 ### 의존성이나 화면 구성 변경
 
 - 새 라이브러리가 편집 화면에만 필요한가, 상단바에도 필요한가
-- 편집 화면에만 필요하다면 `vite.config.ts`의 `manualChunks`에 넣을 만큼 큰가
+- 편집 화면에만 필요하다면 `vite.config.ts`의 `codeSplitting.groups`에 넣을 만큼 큰가
+- `dist/index.html`의 `modulepreload`에 `vendor-react`와 rolldown runtime 말고 다른 vendor chunk가 없는가
 - `pnpm build` 출력에 500 kB 초과 경고가 생기지 않았는가
 - 진입 chunk에 무거운 라이브러리가 딸려 들어가지 않았는가
 - `React.lazy` 경계를 옮겼다면 예제 화면을 왕복해도 편집 내용이 남는가
@@ -265,7 +266,7 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 2. Application → Manifest에 **아무 경고도 없고** 주소창에 설치 버튼이 나타납니다. 아이콘과 갈무리는 이 화면에서만 실제로 불려 오므로, CDP의 `Page.getAppManifest`가 `errors: []`를 돌려주는 것은 근거가 되지 않습니다(그 명령은 파싱만 합니다). 아이콘을 SVG로 두면 여기서 `Icon … failed to load`가 납니다.
 3. Application → Cache Storage의 precache 목록에 vendor chunk와 함께 **`ExamplesPage-*.js`가 들어 있습니다.** 예제 화면에 들어간 적이 없어도 있어야 합니다. 없으면 오프라인에서 예제 화면이 빕니다.
 4. Network를 Offline으로 두고 강력 새로 고침해도 편집기·순서도·팔레트가 뜨고, 기호 추가와 연결, `#/examples`, `이미지로 저장`, 저장한 작업 복원이 모두 동작합니다.
-5. 오프라인에서도 한글이 Pretendard로 나오는지 확인합니다. 새 한글 문장도 입력해 봅니다. 네트워크 기록에 외부 글꼴 CDN 요청이 없어야 하며, `assets/PretendardVariable-<hash>.woff2`는 앱과 같은 출처에서 제공되고 service worker 캐시에 포함되어야 합니다. 글꼴 요청 실패는 정상 동작으로 취급하지 않습니다.
+5. 오프라인에서도 한글이 Pretendard로 나오는지 확인합니다. 새 한글 문장도 입력해 봅니다. 네트워크 기록에 외부 글꼴 CDN 요청이 없어야 하며, `assets/Pretendard-{Regular,Bold,ExtraBold}.subset-<hash>.woff2` 세 파일은 앱과 같은 출처에서 제공되고 service worker 캐시에 포함되어야 합니다. 글꼴 요청 실패는 정상 동작으로 취급하지 않습니다.
 6. 오프라인에서 쿼리가 붙은 주소(`…/algorithm-visualizer/?from=lms`)로 들어가도 앱이 그대로 뜹니다. 이 경로만 `navigateFallback`을 씁니다.
 7. 소스를 고쳐 다시 빌드하면 열려 있던 창에 새 버전 대화상자가 뜨고, `나중에`는 편집을 그대로 이어 가며 `지금 새로 고침`은 만들던 순서도를 위치까지 유지한 채 새 코드로 바뀝니다.
 
@@ -312,12 +313,13 @@ manifest 값을 그대로 다시 적지 않고 어긋날 수 있는 결합과 Ch
 | 앱 테마색        | `index.html`의 `theme-color`, manifest `theme_color`, `_tokens.scss`의 `--surface-page`                                                   |
 | 처리방침         | `docs/privacy.md` 본문, `workspaceStore`의 저장 항목, service worker 캐시, 자체 호스팅 글꼴                                               |
 | 라이선스 고지    | `package.json` 의존성, `thirdPartyLicenses.ts`의 workbox 런타임 시작점과 원문 예외 목록, `public/licenses/`, `workbox.globPatterns`       |
-| chunk 구성       | `React.lazy` 경계, `manualChunks` 목록, `workbox.globPatterns`, `package.json` 의존성                                                     |
+| chunk 구성       | `React.lazy` 경계, `codeSplitting.groups` 목록, `workbox.globPatterns`, `package.json` 의존성                                             |
 
 ## 알려진 제한과 후속 작업
 
 - 자동 저장은 브라우저마다 한 벌만 보관하며, 여러 작업을 이름 붙여 저장할 수는 없습니다.
 - 글꼴 로드 실패 시 시스템 한글 글꼴로 대체됩니다. 정상적으로 캐시가 준비된 오프라인 환경에서는 Pretendard를 유지합니다.
+- 상용 한글 2,350자 밖의 드문 음절(예: 똠·햏)은 온라인·오프라인 모두 대체 글꼴로 그려집니다([글꼴 안내](./fonts.md#왜-이-방식인가)).
 - 자유로운 한국어 조건식은 평가하지 않으므로 실행 애니메이션이 없습니다.
 - 휴대폰과 태블릿 세로 모드는 지원하지 않습니다.
 - 노드가 매우 많을 때의 자동 배치는 실제 수업 사례를 모아 추가로 다듬을 필요가 있습니다.

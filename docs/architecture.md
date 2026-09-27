@@ -100,7 +100,7 @@ interface Program {
 - 지연 불러오는 chunk도 **요청이 아니라 glob으로** 담기므로, 예제 화면에 한 번도 들어가지 않았어도 `ExamplesPage` chunk가 캐시에 들어갑니다. 오프라인에서 예제 화면이 비지 않는 이유입니다.
 - 화면 전환이 URL 해시라 문서는 `index.html` 하나뿐이고, 보통은 precache가 그대로 맞습니다. `navigateFallback`은 주소에 쿼리가 붙어(예: LMS 링크의 `?from=…`) precache와 어긋나는 경우를 받습니다.
 - 이 앱은 알고리즘을 실행하지도, 서버에 무엇을 보내지도 않으므로 **오프라인에서 기능이 하나도 줄지 않습니다.** 편집·자동 저장·이미지 저장이 모두 그대로 동작합니다.
-- 본문 한글 글꼴은 공식 `pretendard` 패키지의 전체 가변 WOFF2를 `src/main.tsx`에서 불러와 자체 호스팅합니다. Vite가 해시를 붙여 배포하며 약 2 MB의 글꼴을 precache에 포함합니다. 별도의 외부 글꼴 CDN 요청은 없습니다. 라이선스는 `public/licenses/pretendard-OFL.txt`로 배포합니다. 관리 방법은 [글꼴 안내](fonts.md)를 참고합니다.
+- 본문 한글 글꼴은 공식 `pretendard` 패키지의 정적 서브셋(굵기 400·700·800 × 상용 한글 2,350자, 파일 3개 약 800 KB)을 자체 호스팅합니다. Vite가 해시를 붙여 배포하며 세 파일을 precache에 포함합니다. 글꼴 때문에 precache가 3.85 MB에서 1.71 MB로 줄었습니다. 별도의 외부 글꼴 CDN 요청은 없습니다. 라이선스는 `public/licenses/pretendard-OFL.txt`로 배포합니다. 관리 방법은 [글꼴 안내](fonts.md)를 참고합니다.
 
 ### 새 버전 적용
 
@@ -159,7 +159,35 @@ iOS `apple-touch-icon`은 지원 범위 밖이라 두지 않습니다.
 
 **즉 이 분할의 목적은 내려받는 총량을 줄이는 것이 아니라, 먼저 그릴 수 있는 부분을 먼저 그리는 것입니다.** 상단바는 작은 진입 chunk 하나로 그려지고 무거운 코드는 그동안 나란히 받아집니다.
 
-`vite.config.ts`의 `manualChunks`는 위 세 라이브러리를 `vendor-reactflow`·`vendor-codemirror`·`vendor-dagre`로 따로 뽑습니다. 그러지 않으면 이들이 편집 화면 chunk에 함께 들어가, 앱 코드를 한 줄만 고쳐도 해시가 바뀌어 캐시가 통째로 무효가 됩니다. 실제 chunk 구성과 크기는 `pnpm build` 출력이 기준입니다.
+`vite.config.ts`의 `codeSplitting.groups`(Vite 8·rolldown. 예전의 `manualChunks`는 더 이상 지원되지 않습니다)는 위 세 라이브러리를 `vendor-reactflow`·`vendor-codemirror`·`vendor-dagre`로 따로 뽑습니다. 그러지 않으면 이들이 편집 화면 chunk에 함께 들어가, 앱 코드를 한 줄만 고쳐도 해시가 바뀌어 캐시가 통째로 무효가 됩니다. 실제 chunk 구성과 크기는 `pnpm build` 출력이 기준입니다.
+
+그룹 규칙에는 함정이 둘 있어, 한때 React Flow chunk(약 60 KB gzip)가 통째로 첫 화면에 딸려 왔습니다.
+
+| 함정                                                             | 대책                                                                    |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| rolldown은 그룹에 모듈을 담을 때 그 모듈의 **의존성까지** 담는다 | 진입점과 함께 쓰는 React·zustand를 `vendor-react`로 **먼저** 가져간다   |
+| `main.tsx`가 불러오는 `@xyflow/react/dist/style.css`도 그룹에 걸린다 | 그룹은 **JavaScript만** 잡는다(CSS는 진입 CSS로 모임)               |
+
+`dist/index.html`의 `modulepreload`에 `vendor-react`와 rolldown runtime만 있는지로 확인합니다.
+
+## 첫 화면
+
+느린 모바일 망에서 첫 화면이 빨리 뜨도록 두 가지를 지킵니다. Lighthouse 모바일 기준(느린 4G·CPU 4배 감속) Performance 99, 데스크톱 100입니다.
+
+- **첫 화면에 필요한 JavaScript만 받는다**: 진입 chunk와 `vendor-react`(합쳐 gzip 약 77 KB)뿐입니다. 위 [화면 분할과 불러오기](#화면-분할과-불러오기)의 그룹 규칙을 어기면 React Flow가 딸려 와 134 KB가 됩니다.
+- **본문 글꼴은 따로**: Pretendard `@font-face`는 화면을 막는 CSS와 떼어 동적 import로 불러옵니다. 화면을 막는 CSS는 gzip 약 7 KB입니다([글꼴 안내](fonts.md)).
+
+**정적 셸은 쓰지 않기로 했습니다.** `index.html`에 상단바 HTML과 첫 화면 CSS를 미리 넣어 JavaScript보다 먼저 그리는 방법을 시험했는데, 이득이 느린 모바일 망의 첫 방문에만 있었습니다.
+
+| 측정                          | 정적 셸 있음          | 정적 셸 없음(현재)    |
+| ----------------------------- | --------------------- | --------------------- |
+| 모바일 첫 방문                | 100점, FCP·LCP 0.7초  | 99점, FCP·LCP 1.6초   |
+| 데스크톱 첫 방문              | 100점, FCP 0.2초      | 100점, FCP 0.4초      |
+| 재방문(PWA 캐시, CPU 4배 감속) | FCP 61 ms, LCP 130 ms | FCP 121 ms, LCP 121 ms |
+
+이 앱은 학교 기기에서 PWA로 반복해 여는 경우가 대부분이라 체감 차이가 거의 없는 반면, 상단바 마크업을 `index.html`에 한 벌 더 두고 맞춰야 하며, `#/examples`로 바로 들어오면 버튼이 한 번 바뀝니다. 다시 검토한다면 셸만으로는 효과가 없고 **진입 CSS 인라인과 함께** 해야 합니다(CSS를 따로 받는 왕복 사이에 JavaScript가 도착하기 때문).
+
+**측정할 때 주의**: `vite preview`는 gzip을 하지 않고, 로컬 서버는 지연이 0이라 페인트 한 번 할 틈 없이 모든 파일이 도착해 점수가 82~99로 튑니다. 요청마다 지연(40 ms 정도)을 두고 gzip하는 서버에서 재야 배포(GitHub Pages)와 같은 순서가 재현됩니다.
 
 ## 모듈 책임
 

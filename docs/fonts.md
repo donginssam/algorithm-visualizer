@@ -2,9 +2,28 @@
 
 공식 `pretendard` 패키지를 pnpm으로 관리합니다. 버전은 `1.3.9`로 고정합니다.
 
-`src/main.tsx`에서 `pretendard/dist/web/variable/pretendardvariable.css`를 불러옵니다. Vite가 CSS에서 참조하는 전체 가변 WOFF2를 `assets/PretendardVariable-<hash>.woff2`로 빌드하고 GitHub Pages 하위 경로에 맞춰 URL을 만듭니다. 브라우저는 앱과 같은 출처에서 글꼴을 받으며 npm이나 별도 글꼴 CDN에 접속하지 않습니다.
+[`src/styles/pretendard.css`](../src/styles/pretendard.css)가 앱이 쓰는 굵기 **400·700·800** 세 가지만, **상용 한글 2,350자(KS X 1001)와 라틴 문자**를 담은 정적 서브셋(`pretendard/dist/web/static/woff2-subset/`)으로 선언합니다. Vite가 세 파일(각 약 265 KB)에 해시를 붙여 배포하고, 브라우저는 앱과 같은 출처에서 받습니다. npm이나 별도 글꼴 CDN에는 접속하지 않습니다.
 
-글꼴은 약 2 MB이며 `vite.config.ts`의 WOFF2 precache 규칙에 포함됩니다. 캐시가 준비되면 오프라인에서도 새 한글 문장을 같은 글꼴로 표시합니다.
+`src/main.tsx`가 이 CSS를 동적 import로 불러와 화면을 막는 CSS와 떼어 둡니다. 글꼴이 오기 전에는 `_tokens.scss`의 대체 글꼴(Apple SD Gothic Neo·맑은 고딕)로 보이고 오면 바뀝니다(`font-display: swap`). 세 파일은 `vite.config.ts`의 WOFF2 precache 규칙에 포함되어 오프라인에서도 같은 글꼴로 표시합니다.
+
+## 왜 이 방식인가
+
+설치해 두고 반복해 여는 PWA라, 한 번 받는 양과 오프라인 준비 시간을 첫 방문의 글꼴 표시 속도보다 앞에 두었습니다. 느린 4G(1.6 Mbps, service worker의 precache 요청까지 한 회선을 나눠 쓰는 조건)에서 잰 값입니다.
+
+| 방식                                         | PWA precache       | 첫 방문 총 전송 | 오프라인 준비 | 글꼴이 입혀지는 시각 |
+| -------------------------------------------- | ------------------ | --------------- | ------------- | -------------------- |
+| **현재**: 정적 3굵기 × 2,350자               | 1.71 MB (40개)     | 1.09 MB         | 10초          | 6.0초                |
+| 가변 글꼴 동적 서브셋(조각 92개, 합계 2.9 MB) | 3.85 MB (129개)    | 3.15 MB         | 33초          | 3.9~4.3초            |
+| 가변 글꼴 전체(2 MB 한 파일)                  | 약 2.8 MB          | 2.28 MB         | 17초          | 11~12초              |
+
+재방문은 모두 캐시에서 열려 차이가 없고, Lighthouse 점수(모바일 99·데스크톱 100)와 CLS(0.024)도 같습니다. 가변 글꼴과 화면을 비교하면 글자 가장자리 안티앨리어싱만 달라 픽셀 1% 남짓 차이가 납니다.
+
+대신 치르는 것은 두 가지입니다.
+
+- **2,350자 밖의 드문 음절**(예: 똠·햏·뷁)은 온라인·오프라인 모두 글자 단위로 대체 글꼴이 그립니다. 앱 UI·예제·docs에 쓰인 음절은 모두 2,350자 안에 있습니다(KS X 1001 음절은 EUC-KR 2바이트로 인코딩되는지로 가립니다).
+- **없는 굵기는 가장 가까운 굵기로** 그려집니다(600이면 700). 새 굵기를 쓰면 `pretendard.css`에 추가합니다.
+
+이미지 저장 버튼의 `⬇`는 Pretendard 어느 파일에도 없어 원래부터 시스템 글꼴로 그려집니다.
 
 ## 라이선스와 업데이트
 
@@ -13,4 +32,4 @@
 - 공식 소스: https://github.com/orioncactus/pretendard
 - 현재 라이선스 원본: https://github.com/orioncactus/pretendard/blob/v1.3.9/LICENSE
 
-업데이트할 때는 `pnpm add --save-exact pretendard@<version>`으로 패키지와 잠금 파일을 갱신하고, 해당 버전의 라이선스도 확인합니다. 빌드 결과에 글꼴이 한 벌만 포함되는지, service worker precache에 포함되는지, 앱과 같은 출처에서 로드되는지 점검합니다. 수동으로 글꼴 바이너리를 저장소에 복사할 필요는 없습니다.
+업데이트할 때는 `pnpm add --save-exact pretendard@<version>`으로 패키지와 잠금 파일을 갱신하고, 해당 버전의 라이선스도 확인합니다. 빌드 결과에 글꼴이 세 파일(400·700·800)만 포함되는지, service worker precache에 포함되는지, 앱과 같은 출처에서 로드되는지 점검합니다. 수동으로 글꼴 바이너리를 저장소에 복사할 필요는 없습니다.
