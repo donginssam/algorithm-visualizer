@@ -31,17 +31,9 @@ function WorkspaceLoading() {
   )
 }
 
-interface ExportState {
-  kind: "idle" | "working" | "done" | "failed"
-  message: string
-}
-
-const IDLE_EXPORT: ExportState = { kind: "idle", message: "" }
-
 /** 작업 내용을 저장하기까지 기다리는 시간. 글자·기호를 이어서 다룰 때 매번 쓰지 않습니다. */
 const SAVE_DELAY = 400
 const CODE_COMMIT_DELAY = 300
-const EXPORT_STATUS_DURATION = 4000
 
 /** 저장해 둔 순서도. 화면을 만들기 전에 정해지므로 다시 그려도 바뀌지 않습니다. */
 const RESTORED_GRAPH = restoredWorkspace
@@ -92,10 +84,8 @@ export default function App() {
     reset,
   } = useAppStore()
   const [pendingKind, setPendingKind] = useState<PaletteItemKind | null>(null)
-  const [exportState, setExportState] = useState<ExportState>(IDLE_EXPORT)
   const [confirmingReset, setConfirmingReset] = useState(false)
   const { clear: clearCodeCommit, schedule: scheduleCodeCommit } = useTimeout()
-  const { clear: clearExportStatus, schedule: scheduleExportStatus } = useTimeout()
   const { clear: clearSave, schedule: scheduleSave } = useTimeout()
   const graphRef = useRef<{ nodes: AlgorithmFlowNode[]; edges: AlgorithmFlowEdge[] }>(
     RESTORED_GRAPH ?? { nodes: [], edges: [] },
@@ -193,21 +183,6 @@ export default function App() {
     reset()
   }
 
-  const handleExportPng = async () => {
-    clearExportStatus()
-    setExportState({ kind: "working", message: "저장 중…" })
-
-    try {
-      await flowCanvasRef.current?.exportPng()
-      setExportState({ kind: "done", message: "저장했어요" })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "저장하지 못했어요."
-      setExportState({ kind: "failed", message })
-    }
-
-    scheduleExportStatus(() => setExportState(IDLE_EXPORT), EXPORT_STATUS_DURATION)
-  }
-
   const showExamples = route === "examples"
 
   return (
@@ -233,20 +208,6 @@ export default function App() {
               <a className="btn" href="#/examples">
                 예제 보기
               </a>
-              <div className="export-block">
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={handleExportPng}
-                  disabled={exportState.kind === "working"}
-                >
-                  <span aria-hidden="true">⬇</span>
-                  이미지로 저장
-                </button>
-                <span className={`export-status ${exportState.kind}`} role="status">
-                  {exportState.message}
-                </span>
-              </div>
             </>
           )}
         </div>

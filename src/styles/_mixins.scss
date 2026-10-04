@@ -16,6 +16,19 @@
   background: $background;
 }
 
+/** 패널 단계 칩과 맞춘 동작 버튼 색상입니다. */
+@mixin panel-action($ink, $soft, $base) {
+  border-color: color-mix(in srgb, #{$base} 35%, transparent);
+  color: $ink;
+  background: $soft;
+
+  &:hover:not(:disabled) {
+    border-color: $base;
+    color: $ink;
+    background: color-mix(in srgb, #{$base} 16%, var(--surface-card));
+  }
+}
+
 /** 세로 가운데 정렬 + 간격. 흔한 가로 나열(아이콘+글자, 툴바 등)에 씁니다. */
 @mixin flex-row($gap: 0, $display: flex) {
   display: $display;

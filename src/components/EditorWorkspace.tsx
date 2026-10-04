@@ -1,10 +1,12 @@
 import { ReactFlowProvider } from "@xyflow/react"
-import type { Ref } from "react"
+import type { RefObject } from "react"
 import type { Program } from "../core/ast"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph } from "../core/flowTypes"
 import type { PseudocodeParseError } from "../core/parser"
 import type { ProgramSource } from "../store/useAppStore"
 import { CodeEditor } from "./CodeEditor"
+import { CopyCodeButton } from "./CopyCodeButton"
+import { ExportImageButton } from "./ExportImageButton"
 import { FlowCanvas, type FlowCanvasHandle } from "./FlowCanvas"
 import { Palette, type PaletteItemKind } from "./Palette"
 import { SyntaxHelp } from "./SyntaxHelp"
@@ -18,7 +20,7 @@ interface EditorWorkspaceProps {
   graphMessage: string | null
   pendingKind: PaletteItemKind | null
   restoredGraph: FlowGraph | null
-  flowCanvasRef: Ref<FlowCanvasHandle>
+  flowCanvasRef: RefObject<FlowCanvasHandle | null>
   hidden: boolean
   onCodeChange: (code: string) => void
   onPendingConsumed: () => void
@@ -57,6 +59,12 @@ export default function EditorWorkspace({
   onPaletteSelect,
   onPaletteDrop,
 }: EditorWorkspaceProps) {
+  const exportImage = async () => {
+    const canvas = flowCanvasRef.current
+    if (!canvas) throw new Error("순서도를 불러온 뒤 다시 저장해 주세요.")
+    await canvas.exportPng()
+  }
+
   return (
     <ReactFlowProvider>
       <div className="editor-route" hidden={hidden}>
@@ -69,6 +77,7 @@ export default function EditorWorkspace({
                 </span>
                 <h2>글로 알고리즘 쓰기</h2>
               </div>
+              <CopyCodeButton code={code} disabled={graphMessage !== null} />
             </div>
             <p className="panel-help">공백 2칸으로 들여쓰면 순서도가 자동으로 바뀝니다.</p>
             <SyntaxHelp />
@@ -91,14 +100,17 @@ export default function EditorWorkspace({
                 </span>
                 <h2>기호로 알고리즘 그리기</h2>
               </div>
+              <ExportImageButton onExport={exportImage} />
+            </div>
+            <div className="panel-help-row">
+              <p className="panel-help">
+                기호를 끌어다 놓고 점끼리 이으면 의사코드가 자동으로 만들어집니다.
+              </p>
               <div className="gesture-help" aria-label="캔버스 조작법">
                 <span>한 손가락 이동</span>
                 <span>두 손가락 확대</span>
               </div>
             </div>
-            <p className="panel-help">
-              기호를 끌어다 놓고 점끼리 이으면 의사코드가 자동으로 만들어집니다.
-            </p>
             <FlowCanvas
               ref={flowCanvasRef}
               program={program}
