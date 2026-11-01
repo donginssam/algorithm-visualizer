@@ -5,7 +5,7 @@ import {
   stripIoLabel,
 } from "../constants/pseudocode"
 import type { AlgorithmFlowNode, ControlKind, FlowNodeKind, TerminalRole } from "../core/flowTypes"
-import { normalizeSymbols } from "../core/parser"
+import { ifHeaderCondition, loopHeaderCondition, normalizeSymbols } from "../core/parser"
 import { ModalDialog } from "./ModalDialog"
 
 export interface EditingState {
@@ -47,11 +47,9 @@ export function editingLabel(editing: EditingState): string {
     case "output":
       return `${OUTPUT_PREFIX}${stripIoLabel(value)}`
     case "decision":
-      return value
-        .replace(/^\[만약\s+/, "")
-        .replace(/\]$/, "")
-        .replace(/\s+반복$/, "")
-        .trim()
+      // 의사코드에서 붙여 넣은 바깥 표기(`[만약 …]`, `[… 반복]`)만 벗기고, 조건식 안의
+      // 괄호나 낱말(`값[0]`, `작업 반복`)은 그대로 둡니다. 순서는 파서와 같습니다.
+      return loopHeaderCondition(value) ?? ifHeaderCondition(value) ?? value
     default:
       return value
   }

@@ -5,7 +5,7 @@ import { ModalDialog } from "./components/ModalDialog"
 import type { PaletteItemKind } from "./components/Palette"
 import { UpdatePrompt } from "./components/UpdatePrompt"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./core/flowTypes"
-import { clearWorkspace, saveWorkspace } from "./core/workspaceStore"
+import { clearWorkspace, restoredFlowGraph, saveWorkspace } from "./core/workspaceStore"
 import type { Example } from "./examples"
 import { navigateTo, useHashRoute } from "./hooks/useHashRoute"
 import { useTimeout } from "./hooks/useTimeout"
@@ -35,10 +35,11 @@ function WorkspaceLoading() {
 const SAVE_DELAY = 400
 const CODE_COMMIT_DELAY = 300
 
-/** 저장해 둔 순서도. 화면을 만들기 전에 정해지므로 다시 그려도 바뀌지 않습니다. */
-const RESTORED_GRAPH = restoredWorkspace
-  ? { nodes: restoredWorkspace.nodes, edges: restoredWorkspace.edges }
-  : null
+/**
+ * 저장해 둔 순서도. 순서도에서 만들던 때만 있고, 아니면 AST에서 다시 그립니다
+ * (restoredFlowGraph). 화면을 만들기 전에 정해지므로 다시 그려도 바뀌지 않습니다.
+ */
+const RESTORED_GRAPH = restoredWorkspace ? restoredFlowGraph(restoredWorkspace) : null
 
 function BrandMark() {
   return (

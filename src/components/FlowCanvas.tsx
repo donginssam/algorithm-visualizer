@@ -191,12 +191,18 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   },
   ref,
 ) {
-  // 되살린 그래프의 화살표 경로도 저장 당시 좌표라 지금 규칙으로 다시 계산합니다.
-  const initialGraph = useRef(
+  /*
+   * 첫 그래프. 되살린 그래프의 화살표 경로도 저장 당시 좌표라 지금 규칙으로 다시 계산합니다.
+   *
+   * 반드시 지연 초기화(함수)로 둡니다. `useRef(식)`처럼 값을 바로 넘기면 그 식이
+   * 렌더링마다 다시 평가되어, 기호를 끄는 동안 프레임마다 자동 배치(astToFlow)를
+   * 돌리고 결과를 버립니다(60프레임 드래그에 61번).
+   */
+  const [initialGraph] = useState(() =>
     restoredGraph
       ? { nodes: restoredGraph.nodes, edges: routeEdges(restoredGraph.nodes, restoredGraph.edges) }
       : astToFlow(program),
-  ).current
+  )
   const [nodes, setNodesState] = useState<AlgorithmFlowNode[]>(initialGraph.nodes)
   const [edges, setEdgesState] = useState<AlgorithmFlowEdge[]>(initialGraph.edges)
   const [editing, setEditing] = useState<EditingState | null>(null)

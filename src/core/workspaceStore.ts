@@ -11,7 +11,7 @@
 
 import type { Program, Statement } from "./ast"
 import { branchSide, NODE_SIZES } from "./nodeGeometry"
-import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./flowTypes"
+import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph, FlowNodeKind } from "./flowTypes"
 import { parsePseudocode } from "./parser"
 
 /** 저장 형식이 바뀌면 올립니다. 예전 값은 읽지 않고 버립니다. */
@@ -75,18 +75,36 @@ export function serializeWorkspace(workspace: Workspace): string {
   })
 }
 
+/** 기호 종류마다 그리는 React Flow 노드 타입(FlowCanvas의 nodeTypes). */
+const NODE_TYPE_OF: Record<FlowNodeKind, string> = {
+  terminal: "terminal",
+  input: "io",
+  output: "io",
+  process: "process",
+  decision: "decision",
+  junction: "junction",
+}
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value)
+
+const isPoint = (value: unknown): value is { x: number; y: number } =>
+  isObject(value) && isFiniteNumber(value.x) && isFiniteNumber(value.y)
+
+/**
+ * 기호 하나가 그대로 그릴 수 있는 모양인지.
+ *
+ * 종류와 타입이 어긋나면 다른 모양의 기호로 그려지고, 좌표가 무한대이면 화면 맞추기와
+ * PNG 크기 계산이 무너집니다. 어느 쪽이 맞는 값인지 알 수 없으므로 고치지 않고 거부합니다.
+ */
 function isNode(value: unknown): value is AlgorithmFlowNode {
-  if (!isObject(value)) return false
-  const position = value.position
-  return (
-    typeof value.id === "string" &&
-    isObject(position) &&
-    typeof position.x === "number" &&
-    typeof position.y === "number" &&
-    isObject(value.data) &&
-    typeof value.data.kind === "string" &&
-    typeof value.data.label === "string"
-  )
+  if (!isObject(value) || typeof value.id !== "string") return false
+  if (!isPoint(value.position) || !isObject(value.data)) return false
+  const { kind, label, terminalRole, controlKind } = value.data
+  if (typeof kind !== "string" || !(kind in NODE_TYPE_OF) || typeof label !== "string") return false
+  if (value.type !== NODE_TYPE_OF[kind as FlowNodeKind]) return false
+  if (terminalRole !== undefined && terminalRole !== "start" && terminalRole !== "end") return false
+  return controlKind === undefined || controlKind === "if" || controlKind === "loop"
 }
 
 function isStatement(value: unknown): value is Statement {
@@ -136,13 +154,42 @@ function restoredProgram(code: string, stored: unknown): Program | null {
   }
 }
 
+const EDGE_BRANCHES = new Set(["yes", "no", "next", "loop-back"])
+
 function isEdge(value: unknown): value is AlgorithmFlowEdge {
-  return (
-    isObject(value) &&
-    typeof value.id === "string" &&
-    typeof value.source === "string" &&
-    typeof value.target === "string"
-  )
+  if (!isObject(value)) return false
+  if (typeof value.id !== "string" || typeof value.source !== "string") return false
+  if (typeof value.target !== "string") return false
+  if (value.sourceHandle != null && typeof value.sourceHandle !== "string") return false
+  if (value.type !== undefined && value.type !== "editable" && value.type !== "loop-back") {
+    return false
+  }
+  if (value.data === undefined) return true
+  if (!isObject(value.data)) return false
+  return value.data.branch === undefined || EDGE_BRANCHES.has(value.data.branch as string)
+}
+
+const hasUniqueIds = (items: Array<{ id: string }>) =>
+  new Set(items.map(item => item.id)).size === items.length
+
+/**
+ * 고쳐서 살릴 수 있는 화살표 손상을 고칩니다.
+ *
+ * - **없는 기호를 가리키는 화살표**는 그릴 수도 의사코드로 바꿀 수도 없으니 떼어 냅니다.
+ * - **경로(`routePoints`)**는 기호 위치로 다시 계산하는 캐시라(FlowCanvas가 되살릴 때
+ *   routeEdges로 새로 구합니다), 유한한 점의 배열이 아니면 지우기만 합니다. 그대로 두면
+ *   화면 맞추기와 PNG 크기 계산이 경로를 훑다가 예외를 냅니다.
+ */
+function repairEdges(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]): AlgorithmFlowEdge[] {
+  const ids = new Set(nodes.map(node => node.id))
+  return edges
+    .filter(edge => ids.has(edge.source) && ids.has(edge.target))
+    .map(edge => {
+      const routePoints: unknown = edge.data?.routePoints
+      if (routePoints === undefined) return edge
+      if (Array.isArray(routePoints) && routePoints.every(isPoint)) return edge
+      return { ...edge, data: { ...edge.data, routePoints: undefined } }
+    })
 }
 
 /**
@@ -169,13 +216,16 @@ export function parseWorkspace(raw: string | null): Workspace | null {
     return null
   if (!Array.isArray(parsed.nodes) || !parsed.nodes.every(isNode)) return null
   if (!Array.isArray(parsed.edges) || !parsed.edges.every(isEdge)) return null
+  // 같은 id가 둘이면 화살표가 어느 기호를 가리키는지, 지울 때 무엇이 지워질지 정할 수 없습니다.
+  if (!hasUniqueIds(parsed.nodes) || !hasUniqueIds(parsed.edges)) return null
 
+  const edges = repairEdges(parsed.nodes, parsed.edges)
   return {
     code: parsed.code,
     program,
     source: parsed.source,
     nodes: parsed.nodes,
-    edges: withCurrentBranchSides(parsed.nodes, parsed.edges),
+    edges: withCurrentBranchSides(parsed.nodes, edges),
   }
 }
 
@@ -216,6 +266,23 @@ function withCurrentBranchSides(
  * 사생활 보호 모드처럼 localStorage를 막아 둔 환경에서는 예외가 나므로, 저장에
  * 실패해도 화면은 그대로 쓸 수 있도록 조용히 넘어갑니다.
  */
+
+/**
+ * 되살릴 순서도 그래프. `null`이면 AST에서 다시 그립니다(FlowCanvas).
+ *
+ * 저장해 둔 그래프를 쓰는 것은 **순서도에서 만들던 때(`flow`)뿐**입니다. 그때의 그래프에는
+ * AST가 담지 못하는 것(아직 잇지 않은 기호, 손으로 옮긴 자리)이 있기 때문입니다.
+ *
+ * 글(`text`)이나 예제(`example`)에서 온 그래프는 AST를 자동 배치한 결과일 뿐이라 다시
+ * 그려도 잃는 것이 없습니다. 기호를 옮기거나 고치는 순간 출처가 `flow`로 바뀌기
+ * 때문입니다. 게다가 그대로 쓰면 틀릴 수 있습니다. 글을 고친 직후 의사코드 반영(300ms)을
+ * 기다리는 동안 창을 닫으면 최신 글과 한 걸음 뒤처진 그래프가 함께 저장되는데, 이를
+ * 되살리면 편집기와 순서도가 다른 프로그램을 보여 주고, 이어서 순서도를 고치는 순간
+ * 낡은 그래프가 최신 글을 덮어씁니다.
+ */
+export function restoredFlowGraph(workspace: Workspace): FlowGraph | null {
+  return workspace.source === "flow" ? { nodes: workspace.nodes, edges: workspace.edges } : null
+}
 
 export function loadWorkspace(): Workspace | null {
   try {

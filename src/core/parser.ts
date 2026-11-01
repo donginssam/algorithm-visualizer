@@ -19,6 +19,21 @@ export class PseudocodeParseError extends Error {
   }
 }
 
+/**
+ * `[조건 반복]` 한 줄에서 조건을 꺼냅니다. 반복 표기가 아니면 null.
+ *
+ * 순서도의 기호 편집 창(components/NodeEditorDialog.tsx)도 같은 규칙으로 붙여 넣은
+ * 바깥 표기를 벗깁니다. 두 곳이 어긋나면 편집 창이 조건식 일부를 지웁니다.
+ */
+export function loopHeaderCondition(text: string): string | null {
+  return text.match(/^\[(.+?)\s+반복\]$/)?.[1].trim() ?? null
+}
+
+/** `[만약 조건]` 한 줄에서 조건을 꺼냅니다. 조건 분기 표기가 아니면 null. */
+export function ifHeaderCondition(text: string): string | null {
+  return text.match(/^\[만약\s+(.+)\]$/)?.[1].trim() ?? null
+}
+
 /** 태블릿 키보드에서 입력하기 어려운 교과서 기호로 바꿉니다. */
 export function normalizeSymbols(text: string): string {
   return text.replace(/<-/g, "←").replace(/\*/g, "×")
@@ -139,9 +154,9 @@ export function parsePseudocode(source: string): Program {
       }
       if (line.text === "[아니면]") break
 
-      const loopMatch = line.text.match(/^\[(.+?)\s+반복\]$/)
-      if (loopMatch) {
-        const condition = loopMatch[1].trim()
+      const loopCondition = loopHeaderCondition(line.text)
+      if (loopCondition !== null) {
+        const condition = loopCondition
         cursor += 1
         const body = parseBlock(expectedIndent + 2)
         if (body.length === 0) {
@@ -154,9 +169,9 @@ export function parsePseudocode(source: string): Program {
         continue
       }
 
-      const ifMatch = line.text.match(/^\[만약\s+(.+)\]$/)
-      if (ifMatch) {
-        const condition = ifMatch[1].trim()
+      const ifCondition = ifHeaderCondition(line.text)
+      if (ifCondition !== null) {
+        const condition = ifCondition
         cursor += 1
         const thenBody = parseBlock(expectedIndent + 2)
         if (thenBody.length === 0) {

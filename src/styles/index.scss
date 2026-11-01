@@ -1263,3 +1263,47 @@ h2 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* =========================================================================
+   앱이 멈췄을 때(components/AppErrorBoundary.tsx)
+   ========================================================================= */
+
+.crash-screen {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--space-5);
+}
+
+.crash-card {
+  width: min(520px, 100%);
+  padding: var(--space-6);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-md);
+
+  h1 {
+    margin: 0 0 var(--space-3);
+    font-size: 22px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-body);
+    font-size: 15px;
+    line-height: 1.6;
+  }
+}
+
+.crash-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-5) 0 var(--space-3);
+}
+
+.crash-card .crash-note {
+  color: var(--text-muted);
+  font-size: 13px;
+}
