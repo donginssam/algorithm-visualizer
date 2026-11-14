@@ -1,5 +1,10 @@
 overrides:
-  fast-uri: 3.1.6
+  fast-uri: ^3.1.9
+  # workbox-build 7.4.1은 glob 11을 요구하지만, glob 11과 여기에 딸린 minimatch 10에는
+  # 보안 권고가 있어 glob 14로 올린다. workbox-build는 globSync(pattern, { cwd, follow,
+  # ignore })만 호출하며, 이 사용법은 glob 14에서도 바뀌지 않았다.
+  # workbox-build가 glob 14 이상을 받아들이면 이 override를 지운다.
+  "workbox-build>glob": ^14.0.6
 
 allowBuilds:
   "@parcel/watcher": false
