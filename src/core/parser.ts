@@ -1,3 +1,4 @@
+import { END_LABEL, START_LABEL } from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
 
 interface SourceLine {
@@ -117,7 +118,7 @@ export function parsePseudocode(source: string): Program {
   if (lines.length === 0) {
     throw new PseudocodeParseError(1, "첫 줄에 '시작'을 적어 주세요.")
   }
-  if (lines[0].text !== "시작") {
+  if (lines[0].text !== START_LABEL) {
     throw new PseudocodeParseError(lines[0].number, "첫 줄은 '시작'이어야 해요.")
   }
   if (lines[0].indent !== 0) {
@@ -129,7 +130,7 @@ export function parsePseudocode(source: string): Program {
   if (lines.length === 1) return { body: [] }
 
   const lastLine = lines[lines.length - 1]
-  if (lastLine.text !== "끝") {
+  if (lastLine.text !== END_LABEL) {
     throw new PseudocodeParseError(lastLine.number, "마지막 줄에 '끝'을 적어 주세요.")
   }
   if (lastLine.indent !== 0) {

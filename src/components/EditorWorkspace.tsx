@@ -1,9 +1,8 @@
 import { ReactFlowProvider } from "@xyflow/react"
-import type { RefObject } from "react"
+import { useCallback, type RefObject } from "react"
 import type { Program } from "../core/ast"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph } from "../core/flowTypes"
-import type { PseudocodeParseError } from "../core/parser"
-import type { ProgramSource } from "../store/useAppStore"
+import { useAppStore } from "../store/useAppStore"
 import { CodeEditor } from "./CodeEditor"
 import { CopyCodeButton } from "./CopyCodeButton"
 import { ExportImageButton } from "./ExportImageButton"
@@ -12,12 +11,6 @@ import { Palette, type PaletteItemKind } from "./Palette"
 import { SyntaxHelp } from "./SyntaxHelp"
 
 interface EditorWorkspaceProps {
-  program: Program
-  revision: number
-  source: ProgramSource
-  code: string
-  parseError: PseudocodeParseError | null
-  graphMessage: string | null
   pendingKind: PaletteItemKind | null
   restoredGraph: FlowGraph | null
   flowCanvasRef: RefObject<FlowCanvasHandle | null>
@@ -25,8 +18,6 @@ interface EditorWorkspaceProps {
   onCodeChange: (code: string) => void
   onPendingConsumed: () => void
   onGraphMutation: () => void
-  onProgramChange: (program: Program) => void
-  onGraphMessage: (message: string | null) => void
   onGraphChange: (nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]) => void
   onPaletteSelect: (kind: PaletteItemKind) => void
   onPaletteDrop: (kind: PaletteItemKind, clientX: number, clientY: number) => void
@@ -40,12 +31,6 @@ interface EditorWorkspaceProps {
  * FlowCanvas가 유일한 소비자라 여기로 좁혀 뒀습니다.
  */
 export default function EditorWorkspace({
-  program,
-  revision,
-  source,
-  code,
-  parseError,
-  graphMessage,
   pendingKind,
   restoredGraph,
   flowCanvasRef,
@@ -53,12 +38,25 @@ export default function EditorWorkspace({
   onCodeChange,
   onPendingConsumed,
   onGraphMutation,
-  onProgramChange,
-  onGraphMessage,
   onGraphChange,
   onPaletteSelect,
   onPaletteDrop,
 }: EditorWorkspaceProps) {
+  // 프로그램 상태는 store에서 바로 읽습니다. App을 거쳐 내려받으면 글자를 칠 때마다
+  // App(상단바·대화상자)까지 다시 그려지고, 값마다 prop을 한 줄씩 이어 줘야 합니다.
+  const program = useAppStore(state => state.program)
+  const revision = useAppStore(state => state.revision)
+  const source = useAppStore(state => state.source)
+  const code = useAppStore(state => state.code)
+  const parseError = useAppStore(state => state.parseError)
+  const graphMessage = useAppStore(state => state.graphMessage)
+  const setGraphMessage = useAppStore(state => state.setGraphMessage)
+  const setProgram = useAppStore(state => state.setProgram)
+  const handleProgramChange = useCallback(
+    (nextProgram: Program) => setProgram(nextProgram, "flow"),
+    [setProgram],
+  )
+
   const exportImage = async () => {
     const canvas = flowCanvasRef.current
     if (!canvas) throw new Error("순서도를 불러온 뒤 다시 저장해 주세요.")
@@ -121,8 +119,8 @@ export default function EditorWorkspace({
               restoredGraph={restoredGraph}
               onPendingConsumed={onPendingConsumed}
               onGraphMutation={onGraphMutation}
-              onProgramChange={onProgramChange}
-              onGraphMessage={onGraphMessage}
+              onProgramChange={handleProgramChange}
+              onGraphMessage={setGraphMessage}
               onGraphChange={onGraphChange}
             />
           </article>

@@ -19,6 +19,9 @@ export function isBranchHandle(handle: string | null | undefined): handle is Bra
   return handle === "yes" || handle === "no"
 }
 
+/** 팔레트에서 고르는 기호 종류. 입력과 출력은 한 기호(입출력)로 놓고 편집 창에서 가릅니다. */
+export type PaletteItemKind = "terminal" | "io" | "process" | "decision"
+
 export interface FlowNodeData extends Record<string, unknown> {
   label: string
   kind: FlowNodeKind

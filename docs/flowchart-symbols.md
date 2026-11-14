@@ -118,10 +118,10 @@
 | 규칙                | 기준 구현                                                        |
 | ------------------- | ---------------------------------------------------------------- |
 | 기호 색·글자·테두리 | `src/styles/_tokens.scss`의 `--symbol-*`                         |
-| 기호 크기           | `src/core/astToFlow.ts`의 `NODE_SIZES`와 `src/styles/index.scss` |
+| 기호 크기           | `src/core/nodeGeometry.ts`의 `NODE_SIZES`와 `index.scss`         |
 | 화면 도형           | `src/components/nodes/FlowNodes.tsx`                             |
 | 팔레트 도형         | `src/components/Palette.tsx`                                     |
-| 화살표 색·화살촉    | `src/core/astToFlow.ts`, `src/styles/_tokens.scss`               |
+| 화살표 색·화살촉    | `src/core/flowEdges.ts`, `src/constants/flowColors.ts`           |
 | 자동 배치·분기 방향 | `src/core/astToFlow.ts`                                          |
 | 저장용 도형·화살표  | `src/core/flowToSvg.ts`                                          |
 | 공용 화살표 경로    | `src/core/edgeGeometry.ts`                                       |

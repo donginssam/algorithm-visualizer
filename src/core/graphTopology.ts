@@ -1,4 +1,11 @@
-import type { AlgorithmFlowEdge, AlgorithmFlowNode, BranchHandle, FlowGraph } from "./flowTypes"
+import { END_LABEL, INPUT_PREFIX, START_LABEL } from "../constants/pseudocode"
+import type {
+  AlgorithmFlowEdge,
+  AlgorithmFlowNode,
+  BranchHandle,
+  FlowGraph,
+  PaletteItemKind,
+} from "./flowTypes"
 import { NODE_SIZES, RANK_GAP, sizeOf } from "./nodeGeometry"
 
 export const junctionIdOf = (decisionId: string) => `${decisionId}-junction`
@@ -19,6 +26,46 @@ export function createJunctionNode(
     type: "junction",
     position,
     data: { kind: "junction", label: "합류" },
+  }
+}
+
+/**
+ * 팔레트에서 고른 기호를 캔버스에 놓을 때 생기는 기호들.
+ *
+ * - 단말은 '시작'이 없으면 시작, 있으면 '끝'으로 놓습니다(둘 다 있으면 시작. 편집 창에서
+ *   바꿀 수 있고, 둘이 되면 검증이 알려 줍니다).
+ * - 판단은 조건 분기로 놓고 짝 합류 기호를 함께 놓습니다. 함께 놓아 주지 않으면 학생이
+ *   갈래를 잇는 순간 "연결이 끊겨 있어요"부터 보게 됩니다.
+ *
+ * id는 부르는 쪽이 정합니다. 여기서 시각으로 지으면 같은 입력이 매번 다른 결과를 냅니다.
+ */
+export function createSymbolNodes(
+  kind: PaletteItemKind,
+  id: string,
+  position: { x: number; y: number },
+  existing: AlgorithmFlowNode[],
+): AlgorithmFlowNode[] {
+  switch (kind) {
+    case "terminal": {
+      const hasStart = existing.some(node => node.data.terminalRole === "start")
+      const hasEnd = existing.some(node => node.data.terminalRole === "end")
+      const terminalRole = hasStart && !hasEnd ? "end" : "start"
+      const label = terminalRole === "start" ? START_LABEL : END_LABEL
+      return [{ id, type: "terminal", position, data: { kind: "terminal", label, terminalRole } }]
+    }
+    case "io":
+      return [{ id, type: "io", position, data: { kind: "input", label: `${INPUT_PREFIX}변수` } }]
+    case "process":
+      return [{ id, type: "process", position, data: { kind: "process", label: "처리할 내용" } }]
+    case "decision": {
+      const decision: AlgorithmFlowNode = {
+        id,
+        type: "decision",
+        position,
+        data: { kind: "decision", label: "판단 조건", controlKind: "if" },
+      }
+      return [decision, createJunctionNode(id, junctionPosition(decision))]
+    }
   }
 }
 

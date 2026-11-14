@@ -10,6 +10,7 @@
 - 단말·입출력·처리·판단 기호를 마우스 또는 터치로 추가·편집·연결
 - 반복과 조건 분기를 포함한 순서도 자동 배치
 - 문법 오류가 난 줄과 해결 방법을 쉬운 한국어로 안내
+- 의사코드 복사와 순서도 PNG 이미지 저장
 - 앱으로 설치해 인터넷 없이 사용
 
 ## 시작하기
@@ -127,7 +128,7 @@ pnpm dev
 
 ## 기술 스택
 
-- React 18, TypeScript, Vite
+- React 19, TypeScript, Vite
 - React Flow (`@xyflow/react`): 순서도 렌더링과 편집
 - dagre: 노드 자동 배치
 - CodeMirror 6: 의사코드 편집기
@@ -145,6 +146,8 @@ public/                 그대로 배포되는 파일
   icon-maskable.svg     잘려도 되는 아이콘의 원본
   icon-*.png            설치 아이콘 (원본에서 생성)
   screenshot-wide.png   설치 창 미리보기
+  licenses/             패키지에 원문이 없는 라이선스(글꼴)
+plugins/                빌드 때 처리방침·라이선스 고지 페이지 생성
 scripts/
   generate-icons.mjs    SVG에서 설치 아이콘 PNG 만들기
 src/
@@ -156,12 +159,15 @@ src/
     flowToAst.ts        순서도 그래프 → AST
     decisionKind.ts     판단 기호 조건 분기 ↔ 반복 전환 재배선
     removeNodes.ts      기호 삭제(판단 기호와 짝 합류 기호를 함께)
-    graphTopology.ts    공통 합류점 탐색과 짝 식별 규칙
+    graphTopology.ts    합류점과 짝 식별, 연결 규칙, 팔레트 기호 생성
     edgeGeometry.ts     화면·저장 이미지 공용 화살표 경로 계산
     flowToSvg.ts        순서도 그래프 → 저장용 SVG
     workspaceStore.ts   작업 내용 자동 저장(localStorage)
   components/           편집기, 캔버스, 팔레트, 예제 화면
   constants/            여러 편집 화면이 공유하는 상수
+    pseudocode.ts       의사코드 토큰(시작·끝, ←, 입출력 접두어)
+    flowColors.ts       기호·화살표 색(PNG·캔버스용)
+    legal.ts            고지 페이지와 라이선스 원문 경로
     pwa.ts              설치 manifest와 배포 경로
   examples/             예제 알고리즘
   hooks/                해시 기반 화면 전환과 공통 타이머
@@ -176,7 +182,7 @@ pnpm test
 pnpm build
 ```
 
-테스트는 의사코드 파싱, `AST → 의사코드 → AST` 왕복 변환, 순서도 변환과 화살표 경로, 작업 내용 저장 형식, 설치 manifest와 배포 경로의 결합 등을 검증합니다.
+테스트는 의사코드 파싱, `AST → 의사코드 → AST` 왕복 변환, 순서도 변환과 화살표 경로, 작업 내용 저장 형식, 설치 manifest와 배포 경로의 결합, 처리방침·라이선스 고지 페이지 생성 등을 검증합니다.
 
 ## 지원 범위와 알려진 제한
 

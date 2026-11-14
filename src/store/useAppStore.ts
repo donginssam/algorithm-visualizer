@@ -2,7 +2,7 @@ import { create } from "zustand"
 import type { Program } from "../core/ast"
 import { astToText } from "../core/astToText"
 import { parsePseudocode, PseudocodeParseError } from "../core/parser"
-import { loadWorkspace, type Workspace, type WorkspaceSource } from "../core/workspaceStore"
+import { loadWorkspace, type WorkspaceSource } from "../core/workspaceStore"
 
 /**
  * 프로그램이 어디서 왔는지.
@@ -26,21 +26,7 @@ const EMPTY_PROGRAM: Program = { body: [] }
  * 화면을 만들기 전에 한 번만 읽는다. 순서도 그래프는 FlowCanvas가 그대로 받아
  * 쓰므로(App.tsx) 여기서는 의사코드와 AST만 꺼낸다.
  */
-export const restoredWorkspace: Workspace | null = loadWorkspace()
-
-/**
- * 되살린 의사코드에 문법 오류가 남아 있었다면 밑줄과 안내도 함께 되살린다.
- * 그러지 않으면 오류가 있는 글을 두고 "문법이 올바릅니다"라고 알려 주게 된다.
- */
-function restoredParseError(): PseudocodeParseError | null {
-  if (!restoredWorkspace) return null
-  try {
-    parsePseudocode(restoredWorkspace.code)
-    return null
-  } catch (error) {
-    return error instanceof PseudocodeParseError ? error : null
-  }
-}
+export const restoredWorkspace = loadWorkspace()
 
 interface AppState {
   program: Program
@@ -60,7 +46,8 @@ interface AppState {
 export const useAppStore = create<AppState>(set => ({
   program: restoredWorkspace?.program ?? EMPTY_PROGRAM,
   code: restoredWorkspace?.code ?? astToText(EMPTY_PROGRAM),
-  parseError: restoredParseError(),
+  // 되살린 글에 문법 오류가 남아 있었다면 밑줄과 안내도 함께 되살립니다.
+  parseError: restoredWorkspace?.parseError ?? null,
   graphMessage: null,
   revision: 0,
   source: restoredWorkspace?.source ?? "example",

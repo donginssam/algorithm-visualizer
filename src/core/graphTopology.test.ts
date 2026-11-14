@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { canConnect, isLoopBackConnection } from "./graphTopology"
+import { canConnect, createSymbolNodes, isLoopBackConnection, junctionIdOf } from "./graphTopology"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph } from "./flowTypes"
 
 /**
@@ -133,5 +133,42 @@ describe("연결 허용 규칙", () => {
     )
     expect(canConnect(twoIn, { source: "start", target: "join" })).toBe(false)
     expect(canConnect(twoIn, { source: "start", target: "loop" })).toBe(false)
+  })
+})
+
+describe("팔레트에서 놓는 기호", () => {
+  const at = { x: 100, y: 200 }
+  const terminal = (terminalRole: "start" | "end"): AlgorithmFlowNode => ({
+    id: terminalRole,
+    type: "terminal",
+    position: { x: 0, y: 0 },
+    data: { kind: "terminal", label: terminalRole, terminalRole },
+  })
+
+  it("단말은 시작이 없으면 시작, 시작만 있으면 끝으로 놓는다", () => {
+    const roleOf = (existing: AlgorithmFlowNode[]) =>
+      createSymbolNodes("terminal", "t", at, existing)[0].data
+    expect(roleOf([])).toMatchObject({ terminalRole: "start", label: "시작" })
+    expect(roleOf([terminal("start")])).toMatchObject({ terminalRole: "end", label: "끝" })
+    expect(roleOf([terminal("end")])).toMatchObject({ terminalRole: "start" })
+    expect(roleOf([terminal("start"), terminal("end")])).toMatchObject({ terminalRole: "start" })
+  })
+
+  it("입출력은 입력으로, 처리는 처리로 한 개만 놓는다", () => {
+    expect(createSymbolNodes("io", "a", at, [])).toMatchObject([
+      { id: "a", type: "io", position: at, data: { kind: "input", label: "입력: 변수" } },
+    ])
+    expect(createSymbolNodes("process", "b", at, [])).toMatchObject([
+      { id: "b", type: "process", data: { kind: "process" } },
+    ])
+  })
+
+  it("판단은 조건 분기로 놓고 짝 합류 기호를 아래 가운데에 함께 놓는다", () => {
+    const [decision, junction] = createSymbolNodes("decision", "d", at, [])
+    expect(decision.data).toMatchObject({ kind: "decision", controlKind: "if" })
+    expect(junction).toMatchObject({ id: junctionIdOf("d"), type: "junction" })
+    expect(junction.position.y).toBeGreaterThan(at.y)
+    // 합류 기호의 가운데가 판단 기호의 가운데와 같은 세로선에 놓입니다.
+    expect(junction.position.x + 9).toBe(at.x + 110)
   })
 })

@@ -1,7 +1,9 @@
 import {
+  END_LABEL,
   INPUT_PREFIX,
   OUTPUT_PREFIX,
   PSEUDOCODE_SYMBOLS,
+  START_LABEL,
   stripIoLabel,
 } from "../constants/pseudocode"
 import type { AlgorithmFlowNode, ControlKind, FlowNodeKind, TerminalRole } from "../core/flowTypes"
@@ -41,7 +43,7 @@ export function editingLabel(editing: EditingState): string {
 
   switch (editing.kind) {
     case "terminal":
-      return editing.terminalRole === "end" ? "끝" : "시작"
+      return editing.terminalRole === "end" ? END_LABEL : START_LABEL
     case "input":
       return `${INPUT_PREFIX}${stripIoLabel(value)}`
     case "output":

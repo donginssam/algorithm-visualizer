@@ -12,8 +12,11 @@
 
 import {
   EDGE_COLOR as EDGE_STROKE,
+  EDGE_LABEL_COLOR,
   LOOP_EDGE_COLOR as LOOP_EDGE_STROKE,
+  PAPER_COLOR,
   SHAPE_FILL,
+  SHAPE_INK,
 } from "../constants/flowColors"
 import { sizeOf, sourcePoint, targetPoint } from "./nodeGeometry"
 import { loopBackPath, roundedRoutePath } from "./edgeGeometry"
@@ -24,8 +27,6 @@ const SHAPE_STROKE = "rgba(30, 41, 59, 0.42)"
 /** 화살표 굵기 — styles/_tokens.scss의 --edge-width와 같은 값. */
 const EDGE_WIDTH = 2.2
 const LOOP_EDGE_WIDTH = 2.4
-const TEXT_COLOR = "#111827"
-const LABEL_COLOR = "#35415e"
 const FONT_STACK = "-apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif"
 
 export const EXPORT_MARGIN = 48
@@ -69,7 +70,7 @@ function shapeMarkup(node: AlgorithmFlowNode): string {
 
   switch (node.data.kind) {
     case "junction":
-      return `<circle cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" r="${round(width / 2 - 1.5)}" fill="#ffffff" stroke="${EDGE_STROKE}" stroke-width="3" />`
+      return `<circle cx="${round(x + width / 2)}" cy="${round(y + height / 2)}" r="${round(width / 2 - 1.5)}" fill="${fill}" stroke="${EDGE_STROKE}" stroke-width="3" />`
     case "terminal":
       return `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="32" fill="${fill}" stroke="${SHAPE_STROKE}" stroke-width="2" />`
     case "process":
@@ -103,7 +104,7 @@ function labelMarkup(node: AlgorithmFlowNode): string {
     `<foreignObject x="${x}" y="${y}" width="${innerWidth}" height="${height}">` +
     `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;align-items:center;justify-content:center;` +
     `height:${height}px;margin:0;font-family:${FONT_STACK};font-size:${fontSize}px;font-weight:700;` +
-    `line-height:1.35;color:${TEXT_COLOR};text-align:center;overflow-wrap:anywhere">` +
+    `line-height:1.35;color:${SHAPE_INK};text-align:center;overflow-wrap:anywhere">` +
     `${escapeXml(node.data.label)}</div></foreignObject>`
   )
 }
@@ -144,9 +145,9 @@ function edgeMarkup(
   const halfWidth = text.length * 8 + 6
   const label =
     `<rect x="${round(labelX - halfWidth)}" y="${round(labelY - 10)}" width="${round(halfWidth * 2)}" height="20" ` +
-    `rx="4" fill="#ffffff" fill-opacity="0.88" />` +
+    `rx="4" fill="${PAPER_COLOR}" fill-opacity="0.88" />` +
     `<text x="${round(labelX)}" y="${round(labelY)}" text-anchor="middle" dominant-baseline="central" ` +
-    `font-family="${FONT_STACK}" font-size="13" font-weight="800" fill="${LABEL_COLOR}">${escapeXml(text)}</text>`
+    `font-family="${FONT_STACK}" font-size="13" font-weight="800" fill="${EDGE_LABEL_COLOR}">${escapeXml(text)}</text>`
 
   return { path, label }
 }
@@ -215,7 +216,7 @@ export function flowToSvg(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]
   const markup =
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
     `<defs>${arrowMarker("arrow-plain", EDGE_STROKE)}${arrowMarker("arrow-loop", LOOP_EDGE_STROKE)}</defs>` +
-    `<rect width="${width}" height="${height}" fill="#ffffff" />` +
+    `<rect width="${width}" height="${height}" fill="${PAPER_COLOR}" />` +
     `<g transform="translate(${offsetX} ${offsetY})">` +
     drawn.map(entry => entry.path).join("") +
     nodes.map(node => shapeMarkup(node) + labelMarkup(node)).join("") +

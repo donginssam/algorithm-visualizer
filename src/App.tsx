@@ -3,6 +3,7 @@ import type { FlowCanvasHandle } from "./components/FlowCanvas"
 import { LegalLinks } from "./components/LegalLinks"
 import { ModalDialog } from "./components/ModalDialog"
 import type { PaletteItemKind } from "./components/Palette"
+import { SHAPE_FILL } from "./constants/flowColors"
 import { UpdatePrompt } from "./components/UpdatePrompt"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode } from "./core/flowTypes"
 import { clearWorkspace, restoredFlowGraph, saveWorkspace } from "./core/workspaceStore"
@@ -51,7 +52,7 @@ function BrandMark() {
           width="16"
           height="8"
           rx="4"
-          fill="#ffe066"
+          fill={SHAPE_FILL.terminal}
           stroke="currentColor"
           strokeOpacity="0.35"
           strokeWidth="1.5"
@@ -59,7 +60,7 @@ function BrandMark() {
         <path d="M16 11v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <path
           d="M16 15l7 6-7 6-7-6z"
-          fill="#b7e4c7"
+          fill={SHAPE_FILL.decision}
           stroke="currentColor"
           strokeOpacity="0.35"
           strokeWidth="1.5"
@@ -70,20 +71,6 @@ function BrandMark() {
 }
 
 export default function App() {
-  const {
-    program,
-    code,
-    parseError,
-    graphMessage,
-    revision,
-    source,
-    updateCodeDraft,
-    commitCode,
-    beginFlowEdit,
-    setProgram,
-    setGraphMessage,
-    reset,
-  } = useAppStore()
   const [pendingKind, setPendingKind] = useState<PaletteItemKind | null>(null)
   const [confirmingReset, setConfirmingReset] = useState(false)
   const { clear: clearCodeCommit, schedule: scheduleCodeCommit } = useTimeout()
@@ -128,10 +115,21 @@ export default function App() {
     [saveSoon],
   )
 
-  // 의사코드 쪽 변화(글자·AST·출처)도 같은 방식으로 저장합니다.
-  useEffect(() => {
-    saveSoon()
-  }, [code, program, source, saveSoon])
+  // 의사코드 쪽 변화(글자·AST·출처)도 같은 방식으로 저장합니다. App이 이 값들로 화면을
+  // 그리지는 않으므로 구독만 합니다(글자를 칠 때마다 App을 다시 그리지 않습니다).
+  useEffect(
+    () =>
+      useAppStore.subscribe((state, previous) => {
+        if (
+          state.code !== previous.code ||
+          state.program !== previous.program ||
+          state.source !== previous.source
+        ) {
+          saveSoon()
+        }
+      }),
+    [saveSoon],
+  )
 
   // 탭을 그냥 닫아도 마지막 변화가 남도록 예약해 둔 저장을 흘려보냅니다.
   useEffect(() => {
@@ -141,26 +139,22 @@ export default function App() {
 
   const handleCodeChange = useCallback(
     (nextCode: string) => {
+      const { updateCodeDraft, commitCode } = useAppStore.getState()
       updateCodeDraft(nextCode)
       scheduleCodeCommit(() => commitCode(nextCode), CODE_COMMIT_DELAY)
     },
-    [commitCode, scheduleCodeCommit, updateCodeDraft],
-  )
-
-  const handleProgramChange = useCallback(
-    (nextProgram: typeof program) => setProgram(nextProgram, "flow"),
-    [setProgram],
+    [scheduleCodeCommit],
   )
 
   const handleFlowMutation = useCallback(() => {
     clearCodeCommit()
-    beginFlowEdit()
-  }, [beginFlowEdit, clearCodeCommit])
+    useAppStore.getState().beginFlowEdit()
+  }, [clearCodeCommit])
 
   const loadExample = (example: Example) => {
     clearCodeCommit()
     setPendingKind(null)
-    setProgram(example.program, "example")
+    useAppStore.getState().setProgram(example.program, "example")
     navigateTo("editor")
   }
 
@@ -181,7 +175,7 @@ export default function App() {
     clearWorkspace()
     setPendingKind(null)
     setConfirmingReset(false)
-    reset()
+    useAppStore.getState().reset()
   }
 
   const showExamples = route === "examples"
@@ -227,20 +221,12 @@ export default function App() {
       <Suspense fallback={<WorkspaceLoading />}>
         <EditorWorkspace
           hidden={showExamples}
-          program={program}
-          revision={revision}
-          source={source}
-          code={code}
-          parseError={parseError}
-          graphMessage={graphMessage}
           pendingKind={pendingKind}
           restoredGraph={RESTORED_GRAPH}
           flowCanvasRef={flowCanvasRef}
           onCodeChange={handleCodeChange}
           onPendingConsumed={() => setPendingKind(null)}
           onGraphMutation={handleFlowMutation}
-          onProgramChange={handleProgramChange}
-          onGraphMessage={setGraphMessage}
           onGraphChange={handleGraphChange}
           onPaletteSelect={handlePaletteSelect}
           onPaletteDrop={handlePaletteDrop}

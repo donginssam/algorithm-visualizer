@@ -38,6 +38,14 @@ function arrowMarker(branch: FlowEdgeData["branch"]): EdgeMarker {
 const CLEARANCE = 20
 /** 꼭짓점 옆으로 살짝 나간 뒤 위아래로 비켜 가는 거리. 마름모 상자 바깥이어야 합니다. */
 const DODGE = 24
+/** 기호의 위아래 연결점에서 꺾기 전에 곧게 나가는(들어오는) 길이. */
+const STUB = 34
+/** 다른 기호를 돌아갈 때 쓰는 옆 통로가 기호 바깥으로 떨어진 거리. */
+const SIDE_LANE = 34
+/** 복귀선 통로가 순서도 바깥으로 떨어진 거리. 옆 통로보다 바깥이라 서로 겹치지 않습니다. */
+const LOOP_LANE = 46
+/** 갈래가 마름모 꼭짓점에서 옆으로 나가는 최소 거리. 바로 아래 기호로 갈 때 도형을 뚫지 않게 합니다. */
+const SIDESTEP = 12
 
 interface Rect {
   left: number
@@ -172,10 +180,11 @@ export function loopBackRoute(
 
   const fromVertex = source.data.kind === "decision" && isBranchHandle(sourceHandle)
   const side = fromVertex ? branchSide(sourceHandle) : "left"
-  const laneX = side === "left" ? graphLeft - 46 - laneOffset : graphRight + 46 + laneOffset
+  const laneX =
+    side === "left" ? graphLeft - LOOP_LANE - laneOffset : graphRight + LOOP_LANE + laneOffset
 
   // 목적지 위에서 들어오는 수평 선. 목적지 자체를 뚫지 않도록 위로만 비킵니다.
-  const entryY = clearHorizontalY(obstacles, laneX, end.x, end.y - 34, y => y <= end.y - 34, -1)
+  const entryY = clearHorizontalY(obstacles, laneX, end.x, end.y - STUB, y => y <= end.y - STUB, -1)
   const tail: RoutePoint[] = [{ x: laneX, y: entryY }, { x: end.x, y: entryY }, end]
 
   if (fromVertex) {
@@ -200,7 +209,7 @@ export function loopBackRoute(
     return [start, { x: laneX, y: start.y }, ...tail]
   }
 
-  const preferredExitY = start.y + 34
+  const preferredExitY = start.y + STUB
   const exitY = clearHorizontalY(
     obstacles,
     start.x,
@@ -251,26 +260,26 @@ function plainRoute(
     .map(rectOf)
 
   if (!exitSide) {
-    if (end.y - 34 < start.y + 34) {
+    if (end.y - STUB < start.y + STUB) {
       const outside =
         Math.max(
           source.position.x + sizeOf(source).width,
           target.position.x + sizeOf(target).width,
-        ) + 34
+        ) + SIDE_LANE
       const bendX = clearVerticalX(
         obstacles,
-        start.y + 34,
-        end.y - 34,
+        start.y + STUB,
+        end.y - STUB,
         outside,
         x => x >= outside,
         1,
       )
       return [
         start,
-        { x: start.x, y: start.y + 34 },
-        { x: bendX, y: start.y + 34 },
-        { x: bendX, y: end.y - 34 },
-        { x: end.x, y: end.y - 34 },
+        { x: start.x, y: start.y + STUB },
+        { x: bendX, y: start.y + STUB },
+        { x: bendX, y: end.y - STUB },
+        { x: end.x, y: end.y - STUB },
         end,
       ]
     }
@@ -287,19 +296,20 @@ function plainRoute(
   }
 
   const isDirectMerge = target.data.kind === "junction"
-  const laneX = exitSide === "left" ? bounds.left - 34 : bounds.right + 34
-  const turnX = exitSide === "left" ? Math.min(end.x, start.x - 12) : Math.max(end.x, start.x + 12)
+  const laneX = exitSide === "left" ? bounds.left - SIDE_LANE : bounds.right + SIDE_LANE
+  const turnX =
+    exitSide === "left" ? Math.min(end.x, start.x - SIDESTEP) : Math.max(end.x, start.x + SIDESTEP)
   const bendX = isDirectMerge
     ? laneX
     : clearVerticalX(
         obstacles,
         start.y,
-        end.y - 34,
+        end.y - STUB,
         turnX,
-        exitSide === "left" ? x => x <= start.x - 12 : x => x >= start.x + 12,
+        exitSide === "left" ? x => x <= start.x - SIDESTEP : x => x >= start.x + SIDESTEP,
         exitSide === "left" ? -1 : 1,
       )
-  const entryY = clearHorizontalY(obstacles, bendX, end.x, end.y - 34, y => y <= end.y - 34, -1)
+  const entryY = clearHorizontalY(obstacles, bendX, end.x, end.y - STUB, y => y <= end.y - STUB, -1)
   return [start, { x: bendX, y: start.y }, { x: bendX, y: entryY }, { x: end.x, y: entryY }, end]
 }
 

@@ -24,7 +24,7 @@
 | [4] SYMBOL PALETTE                                         |
 |     terminal / I-O / process / decision                    |
 +------------------------------------------------------------+
-| [5] FOOTER                                  privacy policy |
+| [5] FOOTER                       licenses / privacy policy |
 +------------------------------------------------------------+
 ```
 
@@ -76,7 +76,7 @@
 
 ### 대화상자
 
-기호 편집, `초기화` 확인, 새 버전 알림은 모두 같은 스타일(`.modal-backdrop` + `.node-editor-dialog`)을 씁니다. 버튼은 `.dialog-actions button` 규칙에서 최소 44px 높이를 받고, 되돌릴 수 없는 동작은 `.danger`, 권하는 동작은 `.primary`로 표시합니다. 바깥을 누르거나 `Esc`를 누르면 취소됩니다.
+기호 편집, `초기화` 확인, 새 버전 알림은 모두 같은 스타일(`ModalDialog`의 `.app-dialog` + `.app-dialog-panel`)을 씁니다. 버튼은 `.dialog-actions button` 규칙에서 최소 44px 높이를 받고, 되돌릴 수 없는 동작은 `.danger`, 권하는 동작은 `.primary`로 표시합니다. 바깥을 누르거나 `Esc`를 누르면 취소됩니다.
 
 새 버전 알림([`src/components/UpdatePrompt.tsx`](../src/components/UpdatePrompt.tsx))도 같은 규칙을 따릅니다. 초점은 `나중에`에 먼저 가고, 닫아도 편집이 그대로 이어집니다. 자동으로 새로 고치지 않는 이유는 [아키텍처](./architecture.md#새-버전-적용)에 있습니다.
 

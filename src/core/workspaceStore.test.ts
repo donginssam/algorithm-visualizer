@@ -185,6 +185,13 @@ describe("작업 내용 저장", () => {
       expect(parseWorkspace(raw("시작\n  [만약", program))?.program).toEqual(program)
     })
 
+    // 그러지 않으면 오류가 있는 글을 두고 "문법이 올바릅니다"라고 알려 주게 됩니다.
+    it("글에 남아 있던 문법 오류를 함께 돌려준다", () => {
+      const program = { body: [{ type: "output", expr: "합계" }] }
+      expect(parseWorkspace(raw("시작\n  [만약", program))?.parseError).toMatchObject({ line: 2 })
+      expect(parseWorkspace(raw("시작\n  출력: 합계\n끝", program))?.parseError).toBeNull()
+    })
+
     it("글도 틀리고 AST 모양도 어긋나면 되살리지 않는다", () => {
       expect(parseWorkspace(raw("시작\n  [만약", { body: [{ type: "모름" }] }))).toBeNull()
       expect(

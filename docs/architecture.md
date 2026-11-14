@@ -87,7 +87,7 @@ interface Program {
 | `localStorage` 접근은 모두 `try/catch`                | 사생활 보호 모드처럼 막혀 있어도 편집은 계속할 수 있어야 합니다   |
 
 - **저장**: [`src/App.tsx`](../src/App.tsx)가 `code`·`program`·`source` 변화와 `FlowCanvas`의 `onGraphChange`(기호 추가·삭제·연결·편집·이동)를 받아 400ms 디바운스로 저장합니다. `pagehide`에서 예약된 저장을 즉시 흘려보냅니다.
-- **복원**: store가 만들어질 때 한 번 읽어 `program`·`code`·`source`·`parseError`의 초깃값으로 씁니다. 저장해 둔 그래프는 **출처가 `flow`일 때만**(`restoredFlowGraph`) `FlowCanvas`의 `restoredGraph` prop으로 넘어가고 **첫 자동 배치를 한 번 건너뜁니다**. 글(`text`)·예제(`example`)에서 온 그래프는 AST를 자동 배치한 결과일 뿐이라 AST에서 다시 그립니다. 그대로 쓰면, 글을 고친 직후 의사코드 반영을 기다리는 동안 창을 닫았을 때 한 걸음 뒤처진 그래프가 되살아나 편집기와 순서도가 다른 프로그램을 보여 주고, 이어서 순서도를 고치는 순간 낡은 그래프가 최신 글을 덮어씁니다. 그러지 않으면 AST에서 다시 그리면서 연결하지 않은 기호가 사라집니다. 복원한 그래프가 미완성이면 검증만 다시 돌려 `graphMessage`를 띄웁니다(의사코드 초안은 건드리지 않습니다).
+- **복원**: store가 만들어질 때 한 번 읽어 `program`·`code`·`source`·`parseError`의 초깃값으로 씁니다. 글에 남아 있던 문법 오류는 `parseWorkspace`가 AST를 되살리면서 함께 돌려주므로(`RestoredWorkspace.parseError`) store가 글을 다시 파싱하지 않습니다. 저장해 둔 그래프는 **출처가 `flow`일 때만**(`restoredFlowGraph`) `FlowCanvas`의 `restoredGraph` prop으로 넘어가고 **첫 자동 배치를 한 번 건너뜁니다**. 글(`text`)·예제(`example`)에서 온 그래프는 AST를 자동 배치한 결과일 뿐이라 AST에서 다시 그립니다. 그대로 쓰면, 글을 고친 직후 의사코드 반영을 기다리는 동안 창을 닫았을 때 한 걸음 뒤처진 그래프가 되살아나 편집기와 순서도가 다른 프로그램을 보여 주고, 이어서 순서도를 고치는 순간 낡은 그래프가 최신 글을 덮어씁니다. `flow` 출처의 그래프를 AST에서 다시 그리면 반대로 연결하지 않은 기호가 사라집니다. 복원한 그래프가 미완성이면 검증만 다시 돌려 `graphMessage`를 띄웁니다(의사코드 초안은 건드리지 않습니다).
 - **AST 되살리기**: 저장해 둔 `program`을 그대로 믿지 않습니다. `code`가 문법에 맞으면 `parsePseudocode(code)`로 다시 만들고, 문법 오류가 남아 있을 때만 저장된 `program`(마지막으로 올바랐던 AST)을 문장 하나하나 모양을 확인한 뒤 씁니다. 글을 고친 직후 의사코드 반영(300ms)을 기다리는 동안 창을 닫으면 저장된 AST가 글보다 한 걸음 뒤처져 있기 때문이기도 합니다.
 - **손상 처리**: 떼어 내면 되는 것은 고쳐서 살리고, 기호 자체가 어긋나면 빈 화면에서 시작합니다.
 
@@ -109,7 +109,7 @@ interface Program {
 작업 내용은 이미 기기 안(`localStorage`)에 있는데 그 내용을 여는 앱 코드만 매번 네트워크에서 받아야 했습니다. 학교 무선망이 끊기면 저장해 둔 작업을 열지도 못합니다. [`vite.config.ts`](../vite.config.ts)의 `VitePWA`가 이 부분을 메웁니다.
 
 - **precache 목록은 손으로 적지 않습니다.** 파일 이름에 해시가 붙고 vendor chunk가 갈라져 있고 `base`가 dev와 build에서 다르므로, 손으로 적은 목록은 배포할 때마다 낡습니다. Workbox가 빌드 결과에서 만듭니다.
-- `globPatterns`는 기본값(`js,css,html`)에 `svg`와 `icon-*.png`를 더합니다. 그러지 않으면 아이콘이 빠집니다. 설치 창 갈무리는 오프라인에서 쓸 일이 없어 일부러 뺐습니다.
+- `globPatterns`는 기본값(`js,css,html`)에 `svg`, `woff2`, `icon-*.png`, `licenses/*.txt`를 더합니다. 그러지 않으면 아이콘과 글꼴, 라이선스 고지 페이지가 링크하는 원문이 오프라인에서 빠집니다. 설치 창 갈무리는 오프라인에서 쓸 일이 없어 일부러 뺐습니다.
 - 지연 불러오는 chunk도 **요청이 아니라 glob으로** 담기므로, 예제 화면에 한 번도 들어가지 않았어도 `ExamplesPage` chunk가 캐시에 들어갑니다. 오프라인에서 예제 화면이 비지 않는 이유입니다.
 - 화면 전환이 URL 해시라 문서는 `index.html` 하나뿐이고, 보통은 precache가 그대로 맞습니다. `navigateFallback`은 주소에 쿼리가 붙어(예: LMS 링크의 `?from=…`) precache와 어긋나는 경우를 받습니다.
 - 이 앱은 알고리즘을 실행하지도, 서버에 무엇을 보내지도 않으므로 **오프라인에서 기능이 하나도 줄지 않습니다.** 편집·자동 저장·이미지 저장이 모두 그대로 동작합니다.
@@ -140,7 +140,7 @@ manifest의 `scope`·`start_url`이 Vite의 `base`와 어긋나면 **설치는 �
 
 PNG는 [`scripts/generate-icons.mjs`](../scripts/generate-icons.mjs)가 헤드리스 Chrome으로 SVG에서 뽑아 저장소에 함께 둡니다. 빌드에는 넣지 않습니다 — 브랜드 마크를 고쳤을 때만 손으로 한 번 돌립니다.
 
-설치 창 미리보기는 넓은 화면용(`form_factor: "wide"`)과 그 밖의 화면용이 각각 있어야 나옵니다. 이 도구는 가로 화면 전용이라 좁은 화면용 갈무리를 따로 만들 수 없으므로 같은 그림을 `form_factor` 없이 한 번 더 등록합니다. 갈무리는 오프라인에서 쓸 일이 없어 precache에서 뺍니다(`globPatterns`가 `icon-*.png`만 담습니다).
+설치 창 미리보기는 넓은 화면용(`form_factor: "wide"`)과 그 밖의 화면용이 각각 있어야 나옵니다. 이 도구는 가로 화면 전용이라 좁은 화면용 갈무리를 따로 만들 수 없으므로 같은 그림을 `form_factor` 없이 한 번 더 등록합니다. 갈무리는 오프라인에서 쓸 일이 없어 precache에서 뺍니다(`globPatterns`가 PNG는 `icon-*.png`만 담습니다).
 
 iOS `apple-touch-icon`은 지원 범위 밖이라 두지 않습니다.
 
@@ -159,7 +159,11 @@ iOS `apple-touch-icon`은 지원 범위 밖이라 두지 않습니다.
 
 세 대화상자(초기화·새 버전·기호 편집)는 모두 [`src/components/ModalDialog.tsx`](../src/components/ModalDialog.tsx)를 씁니다. 네이티브 `<dialog>`를 `showModal()`로 열어 포커스 가둠과 뒤쪽 화면 비활성화를 브라우저에 맡기고, Escape는 `cancel` 이벤트와 `keydown` 양쪽으로 받습니다(브라우저 바깥층에서 처리하는 `cancel`이 웹뷰·자동화 환경에서 오지 않는 것을 확인했습니다).
 
-[`src/App.tsx`](../src/App.tsx)는 상단바와 두 대화상자(초기화·새 버전)만 직접 가지고, 나머지 두 화면은 `React.lazy`로 나눠 불러옵니다. 무거운 라이브러리(`@xyflow/react`, `@codemirror/*`, `@dagrejs/dagre`)가 전부 편집 화면에만 필요하기 때문입니다. `ReactFlowProvider`도 유일한 소비자인 [`src/components/EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) 안에 둡니다.
+[`src/App.tsx`](../src/App.tsx)는 상단바, 두 대화상자(초기화·새 버전), 법적 고지 링크가 있는 푸터만 직접 가지고, 나머지 두 화면은 `React.lazy`로 나눠 불러옵니다. 무거운 라이브러리(`@xyflow/react`, `@codemirror/*`, `@dagrejs/dagre`)가 전부 편집 화면에만 필요하기 때문입니다. `ReactFlowProvider`도 유일한 소비자인 [`src/components/EditorWorkspace.tsx`](../src/components/EditorWorkspace.tsx) 안에 둡니다.
+
+프로그램 상태(`program`·`code`·`parseError`·`graphMessage`·`revision`·`source`)는 `EditorWorkspace`가 store에서 직접 읽습니다. `App`은 이 값들로 화면을 그리지 않으므로 구독하지 않고, 저장을 예약할 때만 `useAppStore.subscribe`로 변화를 듣습니다. 글자를 칠 때마다 상단바와 대화상자까지 다시 그리지 않기 위해서입니다. 의사코드 반영 타이머와 저장처럼 두 화면에 걸친 동작만 `App`이 prop으로 내려 줍니다.
+
+`FlowCanvas`가 React Flow에 넘기는 처리기와 context 값은 `useCallback`·`useMemo`로 고정합니다. React Flow는 `onNodeDoubleClick` 같은 처리기를 기호마다 prop으로 내려보내므로, 인라인 함수로 넘기면 기호 하나를 끄는 동안 프레임마다 모든 기호가 다시 그려집니다(기호 8개·60프레임에 기호 렌더링 548번 → 63번으로 확인).
 
 두 화면의 불러오는 시점은 서로 다릅니다.
 
@@ -210,10 +214,11 @@ iOS `apple-touch-icon`은 지원 범위 밖이라 두지 않습니다.
 | `src/components/` | CodeMirror, React Flow, 팔레트, 예제 화면 등 사용자 인터페이스 |
 | `src/store/`      | 유효한 AST와 두 편집 표현 사이의 동기화                        |
 | `src/hooks/`      | 해시 기반 화면 전환, 자동 정리되는 공통 타이머                 |
-| `src/constants/`  | 여러 모듈이 함께 쓰는 의사코드 토큰, 기호 색, 설치 manifest    |
-| `public/`         | 그대로 배포되는 파일 — 설치·favicon 아이콘                     |
+| `src/constants/`  | 공용 의사코드 토큰, 기호 색, 설치 manifest, 고지 페이지 경로   |
+| `public/`         | 그대로 배포되는 파일 — 설치·favicon 아이콘, 글꼴 라이선스      |
 | `src/styles/`     | Sass 디자인 token, mixin, 레이아웃과 컴포넌트 스타일           |
 | `src/examples/`   | 학습용 예제 AST                                                |
+| `plugins/`        | 빌드 때 Markdown 정본으로 처리방침·라이선스 고지 페이지 생성   |
 
 `src/core/`는 가능한 한 DOM과 React에 의존하지 않는 순수 로직으로 유지합니다. 변환 규칙을 이 영역에 모으면 Vitest로 빠르게 검증하고 화면과 PNG에서 같은 결과를 재사용할 수 있습니다.
 

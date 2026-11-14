@@ -20,11 +20,12 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react"
-import { INPUT_PREFIX } from "../constants/pseudocode"
+import { CANVAS_DOT_COLOR } from "../constants/flowColors"
 import type { Program } from "../core/ast"
 import { astToFlow } from "../core/astToFlow"
 import { autoLayoutGraph } from "../core/autoLayout"
@@ -35,18 +36,12 @@ import { flowToAst, FlowValidationError } from "../core/flowToAst"
 import { exportGraphAsPng } from "../core/exportPng"
 import { graphBounds } from "../core/flowToSvg"
 import { cloneFlowGraph, GraphHistory } from "../core/graphHistory"
-import {
-  canConnect,
-  createJunctionNode,
-  isLoopBackConnection,
-  junctionPosition,
-} from "../core/graphTopology"
+import { canConnect, createSymbolNodes, isLoopBackConnection } from "../core/graphTopology"
 import {
   isBranchHandle,
   type AlgorithmFlowEdge,
   type AlgorithmFlowNode,
   type FlowGraph,
-  type TerminalRole,
 } from "../core/flowTypes"
 import type { ProgramSource } from "../store/useAppStore"
 import type { PaletteItemKind } from "./Palette"
@@ -110,52 +105,6 @@ interface FlowCanvasProps {
 }
 
 let userNodeSequence = 0
-
-function userNode(
-  kind: PaletteItemKind,
-  position: { x: number; y: number },
-  terminalRole: TerminalRole,
-): AlgorithmFlowNode[] {
-  const id = `user-node-${Date.now()}-${userNodeSequence++}`
-
-  switch (kind) {
-    case "terminal":
-      return [
-        {
-          id,
-          type: "terminal",
-          position,
-          data: {
-            kind: "terminal",
-            label: terminalRole === "start" ? "시작" : "끝",
-            terminalRole,
-          },
-        },
-      ]
-    case "io":
-      return [{ id, type: "io", position, data: { kind: "input", label: `${INPUT_PREFIX}변수` } }]
-    case "process":
-      return [
-        {
-          id,
-          type: "process",
-          position,
-          data: { kind: "process", label: "처리할 내용" },
-        },
-      ]
-    case "decision": {
-      // 조건 분기는 두 갈래가 다시 만나는 합류 기호와 짝입니다. 함께 놓아 주지 않으면
-      // 학생이 갈래를 잇는 순간 "연결이 끊겨 있어요"부터 보게 됩니다.
-      const decision: AlgorithmFlowNode = {
-        id,
-        type: "decision",
-        position,
-        data: { kind: "decision", label: "판단 조건", controlKind: "if" },
-      }
-      return [decision, createJunctionNode(id, junctionPosition(decision))]
-    }
-  }
-}
 
 function graphErrorMessage(error: unknown): string {
   return error instanceof FlowValidationError ? error.message : "순서도의 연결을 확인해 주세요."
@@ -221,6 +170,11 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   // 자동 배치처럼 revision이 바뀌지 않는 변경에서도 화면을 다시 맞추게 하는 방아쇠입니다.
   const [fitRequest, setFitRequest] = useState(0)
 
+  const currentGraph = useCallback(
+    (): FlowGraph => ({ nodes: nodesRef.current, edges: edgesRef.current }),
+    [],
+  )
+
   // 모든 그래프 변경을 한 길목으로 모아 화면 상태와 저장할 상태가 어긋나지 않게 합니다.
   const replaceGraph = useCallback(
     (nextNodes: AlgorithmFlowNode[], edgesBeforeRouting: AlgorithmFlowEdge[]) => {
@@ -262,24 +216,31 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
 
   // 사용자가 그래프를 바꾼 모든 자리(추가·삭제·연결·편집)가 거치는 길목.
   // 저장 표시, 화면 상태, 의사코드 동기화를 한 번에 맞춥니다.
+  // 되돌리기·다시 실행은 이력이 스스로 앞뒤를 옮기므로 `record: false`로 지납니다.
   const commitGraph = useCallback(
-    (nextNodes: AlgorithmFlowNode[], nextEdges: AlgorithmFlowEdge[]) => {
-      historyRef.current.record({ nodes: nodesRef.current, edges: edgesRef.current })
+    (nextNodes: AlgorithmFlowNode[], nextEdges: AlgorithmFlowEdge[], { record = true } = {}) => {
+      if (record) historyRef.current.record(currentGraph())
       positionStartRef.current = null
       onGraphMutation()
       replaceGraph(nextNodes, nextEdges)
       syncGraph(nextNodes, nextEdges)
     },
-    [onGraphMutation, replaceGraph, syncGraph],
+    [currentGraph, onGraphMutation, replaceGraph, syncGraph],
   )
 
   /*
-   * 저장해 둔 그래프로 시작했으면 첫 배치를 건너뜁니다.
+   * 첫 배치는 건너뜁니다. 첫 그래프(initialGraph)가 이미 화면에 있기 때문입니다.
    *
-   * AST에서 다시 그리면 아직 연결하지 않은 기호가 사라져 버립니다. 그것이 바로
-   * 새로 고쳤을 때 잃어버리면 안 되는 내용입니다.
+   * 저장해 둔 그래프로 시작했을 때는 반드시 건너뛰어야 합니다. AST에서 다시 그리면
+   * 아직 연결하지 않은 기호가 사라지는데, 그것이 바로 새로 고쳤을 때 잃어버리면 안 되는
+   * 내용입니다. AST에서 시작했을 때는 같은 배치를 한 번 더 하는 낭비일 뿐입니다.
    */
-  const skipFirstLayoutRef = useRef(Boolean(restoredGraph))
+  const skipFirstLayoutRef = useRef(true)
+
+  // 첫 그래프도 저장할 쪽(App)에 알립니다. 건너뛴 첫 배치가 하던 일입니다.
+  useEffect(() => {
+    onGraphChange(initialGraph.nodes, initialGraph.edges)
+  }, [initialGraph, onGraphChange])
 
   useEffect(() => {
     const skip = skipFirstLayoutRef.current
@@ -328,12 +289,12 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
         y: Math.min(Math.max(clientY, rect.top + 90), rect.bottom - 90),
       }
       const point = screenToFlowPosition(safeScreenPoint)
-      const hasStart = nodesRef.current.some(node => node.data.terminalRole === "start")
-      const hasEnd = nodesRef.current.some(node => node.data.terminalRole === "end")
-      const terminalRole = !hasStart ? "start" : !hasEnd ? "end" : "start"
-      const additions = userNode(kind, { x: point.x - 95, y: point.y - 36 }, terminalRole).map(
-        (node, index) => ({ ...node, selected: index === 0 }),
-      )
+      const additions = createSymbolNodes(
+        kind,
+        `user-node-${Date.now()}-${userNodeSequence++}`,
+        { x: point.x - 95, y: point.y - 36 },
+        nodesRef.current,
+      ).map((node, index) => ({ ...node, selected: index === 0 }))
       const nextNodes = [
         ...nodesRef.current.map(node => ({ ...node, selected: false })),
         ...additions,
@@ -419,10 +380,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   const handleNodesChange = (changes: NodeChange<AlgorithmFlowNode>[]) => {
     const positionChanges = changes.filter(change => change.type === "position")
     if (positionChanges.length > 0 && !positionStartRef.current) {
-      positionStartRef.current = cloneFlowGraph({
-        nodes: nodesRef.current,
-        edges: edgesRef.current,
-      })
+      positionStartRef.current = cloneFlowGraph(currentGraph())
       // 긴 드래그 중 예약된 의사코드 변환이 순서도를 덮지 않도록 즉시 취소합니다.
       onGraphMutation()
     }
@@ -431,7 +389,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     if (removedIds.length > 0) {
       // 판단 기호를 지우면 짝 합류 기호도 함께 지웁니다(removeNodes). 지운 뒤 남은
       // 변경(선택 등)만 이어서 적용합니다.
-      const removed = removeNodes({ nodes: nodesRef.current, edges: edgesRef.current }, removedIds)
+      const removed = removeNodes(currentGraph(), removedIds)
       const next = applyNodeChanges(
         changes.filter(change => change.type !== "remove"),
         removed.nodes,
@@ -456,11 +414,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   const handleEdgesChange = (changes: EdgeChange<AlgorithmFlowEdge>[]) => {
     const removedIds = changes.flatMap(change => (change.type === "remove" ? [change.id] : []))
     if (removedIds.length > 0) {
-      const removed = removeNodes(
-        { nodes: nodesRef.current, edges: edgesRef.current },
-        [],
-        removedIds,
-      )
+      const removed = removeNodes(currentGraph(), [], removedIds)
       const next = applyEdgeChanges(
         changes.filter(change => change.type !== "remove"),
         removed.edges,
@@ -472,11 +426,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
   }
 
   const handleConnect = (connection: Connection) => {
-    const isLoopBack = isLoopBackConnection(
-      { nodes: nodesRef.current, edges: edgesRef.current },
-      connection.source,
-      connection.target,
-    )
+    const isLoopBack = isLoopBackConnection(currentGraph(), connection.source, connection.target)
     const branch = isLoopBack
       ? "loop-back"
       : isBranchHandle(connection.sourceHandle)
@@ -503,31 +453,34 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     commitGraph(nodesRef.current, next)
   }
 
-  const removeNode = (id: string) => {
-    const next = removeNodes({ nodes: nodesRef.current, edges: edgesRef.current }, [id])
-    commitGraph(next.nodes, next.edges)
-  }
+  const removeNode = useCallback(
+    (id: string) => {
+      const next = removeNodes(currentGraph(), [id])
+      commitGraph(next.nodes, next.edges)
+    },
+    [commitGraph, currentGraph],
+  )
 
-  const removeEdge = (id: string) => {
-    const next = removeNodes({ nodes: nodesRef.current, edges: edgesRef.current }, [], [id])
-    commitGraph(next.nodes, next.edges)
-  }
+  const removeEdge = useCallback(
+    (id: string) => {
+      const next = removeNodes(currentGraph(), [], [id])
+      commitGraph(next.nodes, next.edges)
+    },
+    [commitGraph, currentGraph],
+  )
 
   const restoreFromHistory = useCallback(
     (direction: "undo" | "redo") => {
-      const current = { nodes: nodesRef.current, edges: edgesRef.current }
+      const current = currentGraph()
       const restored =
         direction === "undo" ? historyRef.current.undo(current) : historyRef.current.redo(current)
       if (!restored) return false
 
-      positionStartRef.current = null
       setEditing(null)
-      onGraphMutation()
-      replaceGraph(restored.nodes, restored.edges)
-      syncGraph(restored.nodes, restored.edges)
+      commitGraph(restored.nodes, restored.edges, { record: false })
       return true
     },
-    [onGraphMutation, replaceGraph, syncGraph],
+    [commitGraph, currentGraph],
   )
 
   const removeSelected = useCallback(() => {
@@ -539,11 +492,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     )
     if (selectedNodeIds.size === 0 && selectedEdgeIds.size === 0) return false
 
-    const next = removeNodes(
-      { nodes: nodesRef.current, edges: edgesRef.current },
-      selectedNodeIds,
-      selectedEdgeIds,
-    )
+    const next = removeNodes(currentGraph(), selectedNodeIds, selectedEdgeIds)
     commitGraph(next.nodes, next.edges)
     return true
   }, [commitGraph])
@@ -556,7 +505,7 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
    * 되돌리기로 원래 자리를 되찾을 수 있도록 commitGraph를 지납니다.
    */
   const autoArrange = useCallback(() => {
-    const arranged = autoLayoutGraph({ nodes: nodesRef.current, edges: edgesRef.current })
+    const arranged = autoLayoutGraph(currentGraph())
     commitGraph(arranged.nodes, arranged.edges)
     needsFitRef.current = true
     setFitRequest(request => request + 1)
@@ -583,10 +532,32 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
     return () => window.removeEventListener("keydown", handleKeyboardShortcut)
   }, [editing, removeSelected, restoreFromHistory])
 
-  const openEditor = (id: string) => {
+  const openEditor = useCallback((id: string) => {
     const node = nodesRef.current.find(candidate => candidate.id === id)
     if (node) setEditing(editingStateOf(node))
-  }
+  }, [])
+
+  /*
+   * 기호와 화살표의 툴바가 쓰는 동작. 값을 고정해 둡니다.
+   *
+   * 렌더링마다 새 객체를 넘기면 context를 읽는 모든 기호·화살표가 다시 그려집니다.
+   * 기호를 끄는 동안에는 프레임마다 렌더링하므로, 옮기지 않는 기호까지 전부 다시 그립니다.
+   */
+  const nodeActions = useMemo(
+    () => ({ edit: openEditor, remove: removeNode }),
+    [openEditor, removeNode],
+  )
+  const edgeActions = useMemo(() => ({ remove: removeEdge }), [removeEdge])
+
+  /*
+   * React Flow는 이 처리기를 기호마다 prop으로 내려보냅니다. 인라인 함수로 넘기면
+   * 렌더링마다 새 함수가 되어, 기호 하나를 끄는 동안 프레임마다 모든 기호가 다시
+   * 그려집니다(기호 8개·60프레임에 548번 → 옮기는 기호만).
+   */
+  const handleNodeDoubleClick = useCallback(
+    (_: ReactMouseEvent, node: AlgorithmFlowNode) => openEditor(node.id),
+    [openEditor],
+  )
 
   const saveEditing = () => {
     if (!editing) return
@@ -641,8 +612,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
       ref={containerRef}
       aria-keyshortcuts="Control+Z Meta+Z Control+Shift+Z Meta+Shift+Z"
     >
-      <NodeActionContext.Provider value={{ edit: openEditor, remove: removeNode }}>
-        <EdgeActionContext.Provider value={{ remove: removeEdge }}>
+      <NodeActionContext.Provider value={nodeActions}>
+        <EdgeActionContext.Provider value={edgeActions}>
           <ReactFlow<AlgorithmFlowNode, AlgorithmFlowEdge>
             nodes={nodes}
             edges={edges}
@@ -652,10 +623,8 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
             onEdgesChange={handleEdgesChange}
             onConnect={handleConnect}
             onPaneClick={handlePaneClick}
-            onNodeDoubleClick={(_, node) => openEditor(node.id)}
-            isValidConnection={connection =>
-              canConnect({ nodes: nodesRef.current, edges: edgesRef.current }, connection)
-            }
+            onNodeDoubleClick={handleNodeDoubleClick}
+            isValidConnection={connection => canConnect(currentGraph(), connection)}
             minZoom={MIN_ZOOM}
             maxZoom={MAX_ZOOM}
             panOnDrag
@@ -666,7 +635,12 @@ export const FlowCanvas = forwardRef<FlowCanvasHandle, FlowCanvasProps>(function
             proOptions={{ hideAttribution: true }}
             aria-label="순서도 편집 캔버스"
           >
-            <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#cbd5e1" />
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={18}
+              size={1.2}
+              color={CANVAS_DOT_COLOR}
+            />
             <Controls showInteractive={false} showFitView={false}>
               {/* React Flow 기본 '화면 맞춤' 자리를 그대로 쓰되 자동 배치까지 함께 합니다. */}
               <ControlButton

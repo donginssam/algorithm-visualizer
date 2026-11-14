@@ -12,7 +12,7 @@
 import type { Program, Statement } from "./ast"
 import { branchSide, NODE_SIZES } from "./nodeGeometry"
 import type { AlgorithmFlowEdge, AlgorithmFlowNode, FlowGraph, FlowNodeKind } from "./flowTypes"
-import { parsePseudocode } from "./parser"
+import { parsePseudocode, PseudocodeParseError } from "./parser"
 
 /** 저장 형식이 바뀌면 올립니다. 예전 값은 읽지 않고 버립니다. */
 const VERSION = 1
@@ -28,6 +28,11 @@ export interface Workspace {
   source: WorkspaceSource
   nodes: AlgorithmFlowNode[]
   edges: AlgorithmFlowEdge[]
+}
+
+/** 되살린 작업 내용. 글에 남아 있던 문법 오류를 함께 담습니다(저장하지는 않습니다). */
+export interface RestoredWorkspace extends Workspace {
+  parseError: PseudocodeParseError | null
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -144,13 +149,21 @@ function isStatementList(value: unknown): value is Statement[] {
  * 있기도 합니다. 편집기에 보이는 글이 기준이어야 둘이 어긋나지 않습니다.
  *
  * 글에 문법 오류가 남아 있을 때만 저장해 둔 AST(마지막으로 올바랐던 것)를 쓰되,
- * 문장 하나하나의 모양을 확인합니다. 어긋나면 null입니다.
+ * 문장 하나하나의 모양을 확인합니다. 어긋나면 null입니다. 이때의 문법 오류도 함께
+ * 돌려주어, 되살린 글에 밑줄과 안내를 다시 띄울 수 있게 합니다.
  */
-function restoredProgram(code: string, stored: unknown): Program | null {
+function restoredProgram(
+  code: string,
+  stored: unknown,
+): { program: Program; parseError: PseudocodeParseError | null } | null {
   try {
-    return parsePseudocode(code)
-  } catch {
-    return isObject(stored) && isStatementList(stored.body) ? { body: stored.body } : null
+    return { program: parsePseudocode(code), parseError: null }
+  } catch (error) {
+    if (!isObject(stored) || !isStatementList(stored.body)) return null
+    return {
+      program: { body: stored.body },
+      parseError: error instanceof PseudocodeParseError ? error : null,
+    }
   }
 }
 
@@ -198,7 +211,7 @@ function repairEdges(nodes: AlgorithmFlowNode[], edges: AlgorithmFlowEdge[]): Al
  * 형식이 조금이라도 어긋나면 `null`을 돌려줍니다. 예전 버전이나 손상된 값 때문에
  * 화면이 깨진 채로 열리는 것보다 빈 화면에서 시작하는 편이 낫습니다.
  */
-export function parseWorkspace(raw: string | null): Workspace | null {
+export function parseWorkspace(raw: string | null): RestoredWorkspace | null {
   if (!raw) return null
 
   let parsed: unknown
@@ -210,8 +223,8 @@ export function parseWorkspace(raw: string | null): Workspace | null {
 
   if (!isObject(parsed) || parsed.version !== VERSION) return null
   if (typeof parsed.code !== "string") return null
-  const program = restoredProgram(parsed.code, parsed.program)
-  if (!program) return null
+  const restored = restoredProgram(parsed.code, parsed.program)
+  if (!restored) return null
   if (parsed.source !== "example" && parsed.source !== "text" && parsed.source !== "flow")
     return null
   if (!Array.isArray(parsed.nodes) || !parsed.nodes.every(isNode)) return null
@@ -222,7 +235,7 @@ export function parseWorkspace(raw: string | null): Workspace | null {
   const edges = repairEdges(parsed.nodes, parsed.edges)
   return {
     code: parsed.code,
-    program,
+    ...restored,
     source: parsed.source,
     nodes: parsed.nodes,
     edges: withCurrentBranchSides(parsed.nodes, edges),
@@ -284,7 +297,7 @@ export function restoredFlowGraph(workspace: Workspace): FlowGraph | null {
   return workspace.source === "flow" ? { nodes: workspace.nodes, edges: workspace.edges } : null
 }
 
-export function loadWorkspace(): Workspace | null {
+export function loadWorkspace(): RestoredWorkspace | null {
   try {
     return parseWorkspace(window.localStorage.getItem(STORAGE_KEY))
   } catch {

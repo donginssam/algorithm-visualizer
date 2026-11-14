@@ -202,8 +202,10 @@ Unexpected token at expression node.
 3. `src/core/astToText.ts`의 표준 출력
 4. `src/core/astToFlow.ts`의 노드·엣지 생성
 5. `src/core/flowToAst.ts`의 그래프 역변환과 검증
-6. 노드 편집 UI와 팔레트가 필요하다면 관련 컴포넌트
+6. 노드 편집 UI와 팔레트가 필요하다면 관련 컴포넌트(팔레트에서 놓는 기호의 기본값은 `graphTopology.ts`의 `createSymbolNodes`)
 7. `parse(generate(ast)) === ast` 왕복 테스트
+
+문장에 쓰는 글자(`시작`·`끝`, `←`, 입출력 접두어)는 `src/constants/pseudocode.ts`에 모여 있고 파서·생성기·순서도 변환·편집 창이 함께 가져다 씁니다. 새 토큰도 여기에 둡니다.
 
 한 방향 변환만 추가하면 의사코드와 순서도의 일관성이 깨지므로 반드시 양방향과 오류 상태를 함께 구현합니다.
 

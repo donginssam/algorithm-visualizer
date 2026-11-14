@@ -1,7 +1,9 @@
 import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 import { SHAPE_OUTLINE_POINTS, type ShapePoint } from "../core/shapeGeometry"
 
-export type PaletteItemKind = "terminal" | "io" | "process" | "decision"
+import type { PaletteItemKind } from "../core/flowTypes"
+
+export type { PaletteItemKind }
 
 interface PaletteProps {
   pendingKind: PaletteItemKind | null

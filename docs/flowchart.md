@@ -206,10 +206,12 @@ marginy = 28
 | ------------------- | ----------------------------------------------------------------------------------------- |
 | 노드 크기           | `nodeGeometry.ts`의 `NODE_SIZES`, `styles/index.scss`의 도형 치수, SVG 출력과 경로 테스트 |
 | 기호 윤곽선 모양    | `shapeGeometry.ts`의 `SHAPE_OUTLINE_POINTS` 한 곳 — 팔레트·캔버스·SVG가 여기서 파생       |
-| 기호 색상           | `styles/_tokens.scss`, `constants/flowColors.ts`                                          |
+| 기호 색상·글자색    | `styles/_tokens.scss`, `constants/flowColors.ts`(PNG 글자색·바탕, 캔버스 점 색 포함)      |
 | 일반·반복 화살표 색 | `styles/_tokens.scss`, `constants/flowColors.ts`                                          |
 | 화살표 굵기·화살촉  | CSS `--edge-width`, `ARROW_MARKER_SIZE`, SVG marker 크기                                  |
 | 기호 사이 간격      | `nodeGeometry.ts`의 `RANK_GAP` — dagre `ranksep`과 합류점 배치가 함께 씀                  |
+| 화살표가 꺾이는 거리 | `flowEdges.ts`의 `STUB`·`SIDE_LANE`·`LOOP_LANE`·`SIDESTEP`·`CLEARANCE`·`DODGE`          |
+| 시작·끝 글자        | `constants/pseudocode.ts`의 `START_LABEL`·`END_LABEL` — 파서·생성기·단말 기호가 함께 씀   |
 | 판단 좌우 연결      | `YES_SIDE`, `normalizeBranchSides`, 노드 Handle, 경로 생성, SVG source point              |
 | 판단 종류 전환      | `decisionKind.ts`의 재배선 규칙, `flowToAst.ts`의 반복·조건 검증                          |
 | 합류 기호 생성·삭제 | `graphTopology.ts`의 `createJunctionNode`·`junctionIdOf`, `removeNodes.ts`의 짝 찾기      |

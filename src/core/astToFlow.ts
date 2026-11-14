@@ -2,7 +2,13 @@ import { RANK_GAP, sizeOf } from "./nodeGeometry"
 import { edgeAppearance, routeEdges } from "./flowEdges"
 import { branchEdge, createJunctionNode, junctionIdOf } from "./graphTopology"
 import dagre from "@dagrejs/dagre"
-import { ASSIGN_GLYPH, INPUT_PREFIX, OUTPUT_PREFIX } from "../constants/pseudocode"
+import {
+  ASSIGN_GLYPH,
+  END_LABEL,
+  INPUT_PREFIX,
+  OUTPUT_PREFIX,
+  START_LABEL,
+} from "../constants/pseudocode"
 import type { Program, Statement } from "./ast"
 import {
   isBranchHandle,
@@ -178,14 +184,14 @@ export function astToFlow(program: Program): FlowGraph {
   const nodes: AlgorithmFlowNode[] = [
     flowNode(
       "terminal-start",
-      { kind: "terminal", label: "시작", terminalRole: "start" },
+      { kind: "terminal", label: START_LABEL, terminalRole: "start" },
       "terminal",
     ),
     ...(hasEnd
       ? [
           flowNode(
             "terminal-end",
-            { kind: "terminal", label: "끝", terminalRole: "end" },
+            { kind: "terminal", label: END_LABEL, terminalRole: "end" },
             "terminal",
           ),
         ]
